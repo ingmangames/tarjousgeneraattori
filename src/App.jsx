@@ -16,9 +16,9 @@ const STEPS = [
 
 // ─── TEMPLATE & AIKATAULU ────────────────────────────────────────────────────
 const TEMPLATE_MAP = {
-  1: "c12b10b39743bb81a347cb3258cad7a79143315ebede83542d48ae3b63e1ac31",
-  2: "0de478bd71c9f3d7064c304eea4812ea76ad4c51f43fe1094b087c4eb48de7a6",
-  3: "94b5a3fd31af210e6702ec3cad2911c54f62accadecf4381bc04669846179c80",
+  1: "faaa39c618cc52d6c66c2619af4a5864ed1e2a2dd5e2c7f3cf202d7209257858",
+  2: "f840d53e4d19538d28ce0b8f6df826703e785601625a085c098082ff3265c80c",
+  3: "7b7347449c29b1a83371df309d8c50fa90d5c5f558591c2e50d7d68210753efd",
 };
 
 const AIKATAULU_MAP = {
@@ -121,7 +121,7 @@ const EI_MAALATA_OPTIONS = [
 ];
 
 const PESUAINE_OPTIONS = [
-  { value: "homepesu", label: "Homepesu — Tikkurila Homeenpoistaja BP26" },
+  { value: "homepesu", label: "Homepesu — Tikkurilan Homeenpoisto" },
   { value: "virtanen", label: "Homepesu — Virtasen Homeentappaja" },
   { value: "ei", label: "Ei pesuainetta" },
 ];
@@ -148,25 +148,25 @@ const TUOTTEET = {
   vesiohenteinen: {
     label: "Vesiohenteinen",
     pohja: [
-      { nimi: "Ohennettu Pintamaali", kaytto: "Puupaljaiden kohtien pohjamaalaukseen ennen pintamaalausta.", kestavyys: "Parantaa tartuntaa ja tasaa alustan.", url: "" },
+      { nimi: "Ohennettu Pintamaali (yleispohjustus)", kaytto: "Puupaljaiden kohtien pohjamaalaukseen ennen pintamaalausta.", kestavyys: "Parantaa tartuntaa ja tasaa alustan.", url: "" },
       { nimi: "Ultra Primer", kaytto: "Puupaljaiden kohtien pohjamaalaukseen ennen pintamaalausta.", kestavyys: "Parantaa tartuntaa ja tasaa alustan.", url: "https://tikkurila.fi/tuotteet/ultra-primer" },
       { nimi: "Teho Primer", kaytto: "Puupaljaiden kohtien pohjamaalaukseen ennen pintamaalausta.", kestavyys: "Parantaa tartuntaa ja tasaa alustan.", url: "https://tikkurila.fi/pro/tuotteet/teho-primer" },
     ],
     pinta: [
-      { nimi: "Tikkurilan Vinha", kaytto: "Julkisivumaali, puolihimmeä.", kestavyys: "n. 15 vuotta", url: "https://tikkurila.fi/tuotteet/vinha" },
-      { nimi: "Tikkurilan Ultra Classic", kaytto: "Julkisivumaali, puolihimmeä.", kestavyys: "n. 15 vuotta", url: "https://tikkurila.fi/tuotteet/ultra-classic" },
-      { nimi: "Teknos Nordica Eko", kaytto: "Kiiltävä julkisivumaali.", kestavyys: "n. 15 vuotta", url: "https://www.teknos.com/fi-FI/tuotteet/nordica-eko/" },
-      { nimi: "Tikkurila Ultra Matt", kaytto: "Täysin matta julkisivumaali.", kestavyys: "n. 15 vuotta", url: "https://tikkurila.fi/tuotteet/ultra-matt" },
+      { nimi: "Tikkurilan Vinha", kaytto: "Puolihimmeä julkisivumaali.", kestavyys: "10–15 vuotta.", url: "https://tikkurila.fi/tuotteet/vinha" },
+      { nimi: "Tikkurilan Ultra Classic", kaytto: "Puolihimmeä julkisivumaali.", kestavyys: "10–15 vuotta.", url: "https://tikkurila.fi/tuotteet/ultra-classic" },
+      { nimi: "Teknos Nordica Eko", kaytto: "Kiiltävä julkisivumaali.", kestavyys: "10–15 vuotta.", url: "https://www.teknos.com/fi-FI/tuotteet/nordica-eko/" },
+      { nimi: "Tikkurila Ultra Matt", kaytto: "Täysin matta julkisivumaali.", kestavyys: "10–15 vuotta.", url: "https://tikkurila.fi/tuotteet/ultra-matt" },
     ],
   },
   oljymaali: {
     label: "Öljymaali",
     pohja: [
-      { nimi: "Virtasen Ulko-Vernissa", kaytto: "Toimii 4 Öljyn Maalin ohenteena ja puupuhtaiden kohtien pohjustusteena.", kestavyys: "Parantaa imeytymistä ja pintamaalin kestävyyttä.", url: "https://www.virtasenmaalitehdas.fi/tuote/pellavaoljyvernissa/" },
+      { nimi: "Virtasen Ulko-Vernissa", kaytto: "Toimii 4 Öljyn Maalin ohenteena ja puupaljaiden kohtien pohjustuksena.", kestavyys: "Parantaa pintamaalin imeytymistä ja kestävyyttä.", url: "https://www.virtasenmaalitehdas.fi/tuote/pellavaoljyvernissa/" },
     ],
     pinta: [
-      { nimi: "Virtasen 4 Öljyn Laatumaali", kaytto: "Hirsien ja puujulkisivujen maalaus.", kestavyys: "Hengittävä, joustava ja pitkäikäinen – ei hilseile.", url: "https://www.virtasenmaalitehdas.fi/tuote/virtasen-4-oljyn-laatumaali/" },
-      { nimi: "Teho Öljymaali", kaytto: "Perinteinen öljymaalaus puujulkisivuille.", kestavyys: "Erittäin hyvä säänkesto.", url: "https://tikkurila.com/products/teho-oljymaali" },
+      { nimi: "Virtasen 4 Öljyn Laatumaali", kaytto: "Pintamaalaus, toteutetaan täysin pensselityönä.", kestavyys: "n. 10–15 vuotta.", url: "https://www.virtasenmaalitehdas.fi/tuote/virtasen-4-oljyn-laatumaali/" },
+      { nimi: "Teho Öljymaali", kaytto: "Pintamaalaus täysin pensselityönä.", kestavyys: "n. 10–15 vuotta.", url: "https://tikkurila.com/products/teho-oljymaali" },
     ],
   },
   kuullote: {
@@ -176,10 +176,10 @@ const TUOTTEET = {
       { nimi: "Valtti Plus Pohjuste", kaytto: "Vaativiin olosuhteisiin ennen kuullotetta.", kestavyys: "Tehostettu kosteuden- ja homeenkesto.", url: "https://tikkurila.fi/tuotteet/valtti-plus-pohjuste" },
     ],
     pinta: [
-      { nimi: "Valtti Plus Color", kaytto: "Kuullote ulkopuupinnoille.", kestavyys: "n. 5–7 vuotta", url: "https://tikkurila.fi/tuotteet/valtti-plus-color" },
-      { nimi: "Värisilmä Pilke", kaytto: "Hyytelömäinen kuullote ulkopuupinnoille.", kestavyys: "Pidempi huoltoväli kuin tavanomaisilla kuullotteilla.", url: "https://www.varisilma.fi/kuullote-varisilma-pilke-pm3-18l" },
-      { nimi: "Virtasen 3 Öljyn Kuullote", kaytto: "Kuultava öljykäsittely hirsille ja puujulkisivuille.", kestavyys: "Hengittävä ja luonnollinen pinta, hyvä UV-suoja.", url: "https://www.virtasenmaalitehdas.fi/tuote/virtasen-3-oljyn-kuullote/" },
-      { nimi: "Valtti Color", kaytto: "Perinteinen öljypohjainen kuullote.", kestavyys: "Suojaa kosteudelta ja UV-säteilyltä.", url: "https://tikkurila.fi/tuotteet/valtti-color" },
+      { nimi: "Valtti Plus Color", kaytto: "Kuullote ulkopuupinnoille.", kestavyys: "n. 5–7 vuotta.", url: "https://tikkurila.fi/tuotteet/valtti-plus-color" },
+      { nimi: "Värisilmä Pilke", kaytto: "Kuullote ulkopuupinnoille.", kestavyys: "n. 5–7 vuotta.", url: "https://www.varisilma.fi/kuullote-varisilma-pilke-pm3-18l" },
+      { nimi: "Virtasen 3 Öljyn Kuullote", kaytto: "Kuultava öljykäsittely, levitetään pensselityönä.", kestavyys: "n. 5–7 vuotta.", url: "https://www.virtasenmaalitehdas.fi/tuote/virtasen-3-oljyn-kuullote/" },
+      { nimi: "Valtti Color", kaytto: "Perinteinen öljypohjainen kuullote, levitetään pensselityönä.", kestavyys: "n. 5–7 vuotta.", url: "https://tikkurila.fi/tuotteet/valtti-color" },
     ],
   },
 };
@@ -1201,7 +1201,7 @@ function buildPayload(s) {
       [`${carbonePrefix}pohjamaali_kaytto`]: pohja.kaytto,
       [`${carbonePrefix}pohjamaali_ominaisuudet`]: pohja.kestavyys,
       [`${carbonePrefix}pohjamaali_varisavy`]: s[`${prefix}pohjamaali_varisavy`] || "—",
-      [`${carbonePrefix}pohjamaali_url`]: pohja.nimi === "Ohennettu Pintamaali" ? (pinta.url || "") : (pohja.url || ""),
+      [`${carbonePrefix}pohjamaali_url`]: pohja.nimi.startsWith("Ohennettu Pintamaali") ? (pinta.url || "") : (pohja.url || ""),
       [`${carbonePrefix}pintamaali_nimi`]: pinta.nimi,
       [`${carbonePrefix}pintamaali_kaytto`]: pinta.kaytto,
       [`${carbonePrefix}pintamaali_kestävyys`]: pinta.kestavyys,
@@ -1392,6 +1392,30 @@ function buildPayload(s) {
       lisatyo2_kuvateksti_2: (s.lisatyo2_kuvateksti_2 || "").replace("__muu__", ""),
       // Homepesuaine
       ...pesuaine,
+      // Homepesuaine
+      ...((() => {
+        const pesuaineMap = {
+          homepesu: {
+            homepesuaine_nimi: "Tikkurilan Homeenpoisto",
+            homepesuaine_kaytto: "Tappaa mikrobikasvuston sekä poistaa irtolian ja pölyn.",
+            homepesuaine_ominaisuudet: "Varmistaa tehokkaan pesun ja puhtaan, tartuntavalmiin alustan.",
+            homepesuaine_url: "https://tikkurila.fi/tuotteet/homeenpoisto",
+          },
+          virtanen: {
+            homepesuaine_nimi: "Virtasen Homeentappaja",
+            homepesuaine_kaytto: "Tappaa mikrobikasvuston sekä poistaa irtolian ja pölyn.",
+            homepesuaine_ominaisuudet: "Varmistaa tehokkaan pesun ja puhtaan, tartuntavalmiin alustan.",
+            homepesuaine_url: "https://www.virtasenmaalitehdas.fi/tuote/homeentappaja/",
+          },
+          ei: {
+            homepesuaine_nimi: "—",
+            homepesuaine_kaytto: "—",
+            homepesuaine_ominaisuudet: "—",
+            homepesuaine_url: "",
+          },
+        };
+        return pesuaineMap[s.rak1_pesuaine] || pesuaineMap.homepesu;
+      })()),
       // Materiaalit — päärakennus
       ...matData("rak1_", ""),
       // Materiaalit — rakennus 2
