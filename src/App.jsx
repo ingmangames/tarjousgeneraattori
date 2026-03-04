@@ -420,6 +420,9 @@ function Checklist({ label, options, checked, onChange, extraValue, onExtraChang
 }
 
 function ImageUploadField({ label, previewUrl, isUploading, onFile, onRemove, kuvatekstiOptions, kuvatekstiValue, onKuvatekstiChange }) {
+  const cameraRef = useRef(null);
+  const galleryRef = useRef(null);
+  const handleFile = (e) => { if (e.target.files[0]) { onFile(e.target.files[0]); e.target.value = ""; } };
   return (
     <div className="field">
       {label && <label className="field-label">{label}</label>}
@@ -432,11 +435,13 @@ function ImageUploadField({ label, previewUrl, isUploading, onFile, onRemove, ku
             <button type="button" className="img-remove" onClick={e => { e.stopPropagation(); onRemove(); }}>✕</button>
           </div>
         ) : (
-          <><span className="img-icon">&#128247;</span><span>Valitse kuva</span></>
+          <div className="img-pick-buttons">
+            <button type="button" className="img-pick-btn" onClick={() => cameraRef.current?.click()}>📷 Ota kuva</button>
+            <button type="button" className="img-pick-btn" onClick={() => galleryRef.current?.click()}>🖼 Galleria</button>
+          </div>
         )}
-        {!previewUrl && !isUploading && (
-          <input type="file" accept="image/*" capture="environment" onChange={e => e.target.files[0] && onFile(e.target.files[0])} style={{ opacity: 0, position: "absolute", inset: 0, cursor: "pointer" }} />
-        )}
+        <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: "none" }} />
+        <input ref={galleryRef} type="file" accept="image/*" onChange={handleFile} style={{ display: "none" }} />
       </div>
       {kuvatekstiOptions && onKuvatekstiChange && (() => {
         const isCustom = kuvatekstiValue !== "" && !kuvatekstiOptions.includes(kuvatekstiValue);
