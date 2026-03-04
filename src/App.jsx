@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const N8N_WEBHOOK_URL = "https://n8n-bud4.onrender.com/webhook/tarjous";
+const TARJOUS_WEBHOOK_URL = "https://n8n-bud4.onrender.com/webhook/tarjous-generaattori";
 const LS_KEY = "pl_tarjous_v2";
 
 // ─── NAVIGATION ──────────────────────────────────────────────────────────────
@@ -271,6 +272,10 @@ function defaultState() {
     muut_materiaalit: [],
     // Page 6
     kansikuva_url: "", kansikuva_preview: "", kansikuva_uploading: false,
+    // Tarjousteksti
+    kohde_konteksti: "",
+    tarjousteksti: "",
+    tarjousteksti_loading: false,
   };
   // TV fields (TV0–TV8)
   for (let i = 0; i <= 8; i++) {
@@ -967,7 +972,8 @@ function Page5({ state, update }) {
 }
 
 // ─── PAGE 6 — KUVAT ─────────────────────────────────────────────────────────
-function Page6({ state, update, onImageUpload }) {
+function Page6({ state, update, onImageUpload, onGenerateTarjous }) {
+  const [copied, setCopied] = useState(false);
   return (
     <div>
       <h2 className="page-title">Kuvat</h2>
@@ -1010,6 +1016,36 @@ function Page6({ state, update, onImageUpload }) {
           </div>
         </div>
       )}
+
+      <hr className="section-divider" />
+      <h2 className="page-title">Tarjousteksti</h2>
+
+      <div className="card">
+        <div className="field">
+          <label className="field-label">Lisätieto kohteesta (valinnainen)</label>
+          <textarea rows={3} value={state.kohde_konteksti} onChange={e => update("kohde_konteksti", e.target.value)} placeholder="Esim. asiakkaan erityistoiveet, kohteen erityispiirteet..." />
+        </div>
+
+        <button type="button" className="btn btn-primary" style={{ marginTop: 8 }} disabled={state.tarjousteksti_loading} onClick={onGenerateTarjous}>
+          {state.tarjousteksti_loading ? "Generoidaan..." : "Generoi tarjousteksti"}
+        </button>
+
+        {state.tarjousteksti && (
+          <div style={{ marginTop: 20 }}>
+            <div className="field">
+              <label className="field-label">Tarjousteksti</label>
+              <textarea readOnly rows={20} value={state.tarjousteksti} />
+            </div>
+            <button type="button" className="btn btn-secondary" onClick={() => {
+              navigator.clipboard.writeText(state.tarjousteksti);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }}>
+              {copied ? "✓ Kopioitu!" : "📋 Kopioi teksti"}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1071,6 +1107,30 @@ export default function App() {
     }
   }, []);
 
+  const handleGenerateTarjous = async () => {
+    update("tarjousteksti_loading", true);
+    update("tarjousteksti", "");
+    try {
+      const payload = buildPayload(state);
+      const res = await fetch(TARJOUS_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          carbone: payload.carbone,
+          form: payload.form,
+          konteksti: state.kohde_konteksti
+        })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      update("tarjousteksti", data.teksti);
+    } catch (e) {
+      alert("Virhe tarjoustekstin generoinnissa: " + e.message);
+    } finally {
+      update("tarjousteksti_loading", false);
+    }
+  };
+
   const handleSubmit = async () => {
     const uploadingKeys = Object.keys(state).filter(k => k.endsWith("_uploading") && state[k]);
     if (uploadingKeys.length > 0) { alert("Odota — kuvia ladataan vielä pilvipalveluun..."); return; }
@@ -1104,7 +1164,7 @@ export default function App() {
     <Page3 state={state} update={update} />,
     <Page4 state={state} update={update} onImageUpload={handleImageUpload} />,
     <Page5 state={state} update={update} />,
-    <Page6 state={state} update={update} onImageUpload={handleImageUpload} />,
+    <Page6 state={state} update={update} onImageUpload={handleImageUpload} onGenerateTarjous={handleGenerateTarjous} />,
   ];
 
   return (

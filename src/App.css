@@ -190,6 +190,12 @@ body {
   margin-bottom: 32px;
 }
 
+.section-divider {
+  border: none;
+  border-top: 1.5px solid var(--border);
+  margin: 32px 0;
+}
+
 .card {
   background: var(--white);
   border-radius: 12px;
