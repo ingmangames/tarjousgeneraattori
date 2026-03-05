@@ -288,6 +288,7 @@ function buildingDefaults(prefix, extra = {}) {
     [`${prefix}pohjamaali_varisavy`]: "",
     [`${prefix}pintamaali_idx`]: 0,
     [`${prefix}pintamaali_varisavy`]: "",
+    [`${prefix}kerrokset_lkm`]: "1",
     ...extra,
   };
 }
@@ -325,10 +326,7 @@ function defaultState() {
     tarjousteksti: "",
     tarjousteksti_loading: false,
     // Page 7 — Laskuri
-    kerrokset_lkm: "1",
-    sokkeli_active: false,
     sokkeli_metrit: "",
-    terassi_active: false,
     terassi_m2_laskuri: "",
     timpuri_kuvaus: "",
     timpuri_sijainti: "",
@@ -1101,25 +1099,41 @@ const KERROKSET_OPTIONS = [
 ];
 
 function Page7({ state, update, onImageUpload }) {
-  const [openSections, setOpenSections] = useState({ julkisivu: true, timpuri: false, kaiteet: false, aidat: false, ikkunapokat: false, sokkeli: false, terassi: false, yhteenveto: true });
+  const [openSections, setOpenSections] = useState({ timpuri: false, kaiteet: false, aidat: false, ikkunapokat: false, sokkeli: false, terassi: false, yhteenveto: true });
+  const [openBuildings, setOpenBuildings] = useState({ rak1_: true, rak2_: true, rak3_: true });
   const toggle = (key) => setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+  const toggleBuilding = (key) => setOpenBuildings(prev => ({ ...prev, [key]: !prev[key] }));
 
-  const pintaala = parseFloat(state.rak1_pintaala) || 0;
-  const raystaat = parseFloat(state.rak1_raystasmetrit) || 0;
+  const fmt = (n) => Math.round(n).toLocaleString("fi-FI", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-  const kerroin_maasto = HINNOITTELU.kertoimet.maasto[state.maasto] || 1.0;
-  const kerroin_kerrokset = HINNOITTELU.kertoimet.kerrokset[state.kerrokset_lkm] || 1.0;
-  const kerroin_hilseily = HINNOITTELU.kertoimet.hilseily[state.rak1_hilseily] || 1.0;
-  const kerroin_pohja = HINNOITTELU.kertoimet.pohja[state.rak1_maali_tyyppi] || 1.0;
-  const kerroin_pintakerrokset = HINNOITTELU.kertoimet.pintakerrokset[state.rak1_kerrokset] || 1.0;
-  const yhdistetty_kerroin = kerroin_maasto * kerroin_kerrokset * kerroin_hilseily * kerroin_pohja * kerroin_pintakerrokset;
+  function calcBuilding(prefix, maastoKey) {
+    const pintaala = parseFloat(state[`${prefix}pintaala`]) || 0;
+    const raystaat = parseFloat(state[`${prefix}raystasmetrit`]) || 0;
+    const k_maasto = HINNOITTELU.kertoimet.maasto[state[maastoKey]] || 1.0;
+    const k_kerrokset = HINNOITTELU.kertoimet.kerrokset[state[`${prefix}kerrokset_lkm`]] || 1.0;
+    const k_hilseily = HINNOITTELU.kertoimet.hilseily[state[`${prefix}hilseily`]] || 1.0;
+    const k_pohja = HINNOITTELU.kertoimet.pohja[state[`${prefix}pohjamateriaali`]] || 1.0;
+    const k_pintakerrokset = HINNOITTELU.kertoimet.pintakerrokset[state[`${prefix}kerrokset`]] || 1.0;
+    const k_yht = k_maasto * k_kerrokset * k_hilseily * k_pohja * k_pintakerrokset;
+    const julkisivu = Math.round(pintaala * HINNOITTELU.julkisivu_m2 * k_yht);
+    const raystaat_h = Math.round(raystaat * HINNOITTELU.raystaat_m);
+    const nostin = state[`${prefix}nostin`] === "kylla" ? HINNOITTELU.nostinlisa : 0;
+    const subtotal = julkisivu + raystaat_h + nostin;
+    const kertoimet_list = [];
+    if (k_maasto !== 1.0) kertoimet_list.push({ label: "Maasto", arvo: k_maasto });
+    if (k_kerrokset !== 1.0) kertoimet_list.push({ label: "Kerrokset", arvo: k_kerrokset });
+    if (k_hilseily !== 1.0) kertoimet_list.push({ label: "Hilseily", arvo: k_hilseily });
+    if (k_pohja !== 1.0) kertoimet_list.push({ label: "Pohjakunto", arvo: k_pohja });
+    if (k_pintakerrokset !== 1.0) kertoimet_list.push({ label: "2-kertainen", arvo: k_pintakerrokset });
+    return { pintaala, raystaat, julkisivu, raystaat_h, nostin, subtotal, k_yht, kertoimet_list };
+  }
 
-  const julkisivu_hinta = pintaala * HINNOITTELU.julkisivu_m2 * yhdistetty_kerroin;
-  const raystaat_hinta = raystaat * HINNOITTELU.raystaat_m;
-  const nostin_hinta = state.rak1_nostin !== "ei" ? HINNOITTELU.nostinlisa : 0;
-  const julkisivu_valisisumma = julkisivu_hinta + raystaat_hinta + nostin_hinta;
+  const b1 = calcBuilding("rak1_", "maasto");
+  const b2 = state.rakennuksia >= 2 ? calcBuilding("rak2_", "maasto2") : null;
+  const b3 = state.rakennuksia >= 3 ? calcBuilding("rak3_", "maasto3") : null;
+  const julkisivu_yht = b1.subtotal + (b2?.subtotal || 0) + (b3?.subtotal || 0);
 
-  // Timpuri — automaattilaskenta
+  // Timpuri
   const has_lahot = (state.rak1_timpuri_check || []).includes("Lahot laudat");
   const has_halkeamat = (state.rak1_timpuri_check || []).includes("Halkeamat");
   const has_rakenteelliset = (state.rak1_timpuri_check || []).includes("Rakenteelliset korjaukset");
@@ -1131,7 +1145,7 @@ function Page7({ state, update, onImageUpload }) {
   const tunnit_yht = auto_purku + auto_asennus + auto_kasittely;
   const timpuri_hinta = tunnit_yht > 0 ? Math.round(tunnit_yht * 65 + 100) : 0;
 
-  // Conditional sections from Urakan sisältö
+  // Muut osiot
   const checks = [...(state.maalataan_check || []), ...(state.optio_check || [])];
   const show_kaiteet = checks.includes("Kaiteet");
   const show_aidat = checks.includes("Aidat");
@@ -1139,85 +1153,69 @@ function Page7({ state, update, onImageUpload }) {
   const show_sokkeli = checks.includes("Sokkeli");
   const show_terassi = checks.includes("Terassi");
 
-  // Sokkeli
-  const sokkeli_m = parseFloat(state.sokkeli_metrit) || 0;
-  const sokkeli_hinta = show_sokkeli ? sokkeli_m * HINNOITTELU.sokkeli_m : 0;
+  const sokkeli_hinta = show_sokkeli ? Math.round((parseFloat(state.sokkeli_metrit) || 0) * HINNOITTELU.sokkeli_m) : 0;
+  const terassi_hinta = show_terassi ? Math.round((parseFloat(state.terassi_m2_laskuri) || 0) * HINNOITTELU.terassi_m2) : 0;
+  const kaiteet_hinta = show_kaiteet ? Math.round((parseFloat(state.kaiteet_metrit) || 0) * HINNOITTELU.kaiteet_m) : 0;
+  const aidat_hinta = show_aidat ? Math.round((parseFloat(state.aidat_metrit) || 0) * HINNOITTELU.aidat_m) : 0;
+  const ikkunapokat_hinta = show_ikkunapokat ? Math.round((parseFloat(state.ikkunapokat_kpl) || 0) * HINNOITTELU.ikkunapokat_kpl) : 0;
 
-  // Terassi
-  const terassi_m2 = parseFloat(state.terassi_m2_laskuri) || 0;
-  const terassi_hinta = show_terassi ? terassi_m2 * HINNOITTELU.terassi_m2 : 0;
-
-  const kaiteet_m_val = parseFloat(state.kaiteet_metrit) || 0;
-  const kaiteet_hinta = show_kaiteet ? kaiteet_m_val * HINNOITTELU.kaiteet_m : 0;
-
-  const aidat_m_val = parseFloat(state.aidat_metrit) || 0;
-  const aidat_hinta = show_aidat ? aidat_m_val * HINNOITTELU.aidat_m : 0;
-
-  const ikkunapokat_val = parseFloat(state.ikkunapokat_kpl) || 0;
-  const ikkunapokat_hinta = show_ikkunapokat ? ikkunapokat_val * HINNOITTELU.ikkunapokat_kpl : 0;
-
-  // Yhteenveto
-  const valisisumma = julkisivu_valisisumma + (state.rak1_timpuri ? timpuri_hinta : 0) + sokkeli_hinta + terassi_hinta + kaiteet_hinta + aidat_hinta + ikkunapokat_hinta;
-  const alv = valisisumma * 0.255;
+  const valisisumma = julkisivu_yht + (state.rak1_timpuri ? timpuri_hinta : 0) + sokkeli_hinta + terassi_hinta + kaiteet_hinta + aidat_hinta + ikkunapokat_hinta;
+  const alv = Math.round(valisisumma * 0.255);
   const kokonais = valisisumma + alv;
 
-  const fmt = (n) => n.toLocaleString("fi-FI", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-
-  const kertoimet = [];
-  if (kerroin_maasto !== 1.0) kertoimet.push({ label: "Maasto", arvo: kerroin_maasto });
-  if (kerroin_kerrokset !== 1.0) kertoimet.push({ label: "Kerrokset", arvo: kerroin_kerrokset });
-  if (kerroin_hilseily !== 1.0) kertoimet.push({ label: "Hilseily", arvo: kerroin_hilseily });
-  if (kerroin_pohja !== 1.0) kertoimet.push({ label: "Pohjakunto", arvo: kerroin_pohja });
-  if (kerroin_pintakerrokset !== 1.0) kertoimet.push({ label: "2-kertainen maalaus", arvo: kerroin_pintakerrokset });
+  const BuildingCard = ({ b, prefix, label }) => (
+    <div className="card calc-card">
+      <button type="button" className="calc-toggle" onClick={() => toggleBuilding(prefix)}>
+        <span className="calc-toggle-title">Julkisivun maalaus — {label}</span>
+        <span className="calc-toggle-summary">{fmt(b.subtotal)}€</span>
+        <span className={`calc-toggle-arrow ${openBuildings[prefix] ? "open" : ""}`}>▾</span>
+      </button>
+      {openBuildings[prefix] && <>
+        <Select label="Rakennuksen kerroksia" options={KERROKSET_OPTIONS}
+          value={state[`${prefix}kerrokset_lkm`]}
+          onChange={e => update(`${prefix}kerrokset_lkm`, e.target.value)} />
+        <table className="calc-table">
+          <tbody>
+            <tr>
+              <td>Julkisivu</td>
+              <td className="calc-detail">{fmt(b.pintaala)} m² × {HINNOITTELU.julkisivu_m2}€{b.k_yht !== 1.0 ? ` × ${b.k_yht.toFixed(2)}` : ""}</td>
+              <td className="calc-price">{fmt(b.julkisivu)}€</td>
+            </tr>
+            <tr>
+              <td>Räystäät</td>
+              <td className="calc-detail">{fmt(b.raystaat)} m × {HINNOITTELU.raystaat_m}€</td>
+              <td className="calc-price">{fmt(b.raystaat_h)}€</td>
+            </tr>
+            {b.nostin > 0 && (
+              <tr>
+                <td>Nostin</td>
+                <td className="calc-detail">lisä</td>
+                <td className="calc-price">+{fmt(b.nostin)}€</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        {b.kertoimet_list.length > 0 && (
+          <div className="calc-kertoimet">
+            <span className="calc-kertoimet-label">Kertoimet:</span>
+            {b.kertoimet_list.map(k => (
+              <span key={k.label} className="calc-kerroin-tag">{k.label} ×{k.arvo.toFixed(2)}</span>
+            ))}
+          </div>
+        )}
+        <div className="calc-subtotal">Välisumma: {fmt(b.subtotal)}€</div>
+      </>}
+    </div>
+  );
 
   return (
     <div>
       <h2 className="page-title">Laskuri</h2>
 
-      {/* OSIO 1: Julkisivun maalaus */}
-      <div className="card calc-card">
-        <button type="button" className="calc-toggle" onClick={() => toggle("julkisivu")}>
-          <span className="calc-toggle-title">Julkisivun maalaus</span>
-          <span className="calc-toggle-summary">{fmt(julkisivu_valisisumma)}€</span>
-          <span className={`calc-toggle-arrow ${openSections.julkisivu ? "open" : ""}`}>▾</span>
-        </button>
-        {openSections.julkisivu && <>
-        <table className="calc-table">
-          <tbody>
-            <tr>
-              <td>Julkisivu</td>
-              <td className="calc-detail">{fmt(pintaala)} m² × {HINNOITTELU.julkisivu_m2}€{yhdistetty_kerroin !== 1.0 ? ` × ${yhdistetty_kerroin.toFixed(2)}` : ""}</td>
-              <td className="calc-price">{fmt(julkisivu_hinta)}€</td>
-            </tr>
-            <tr>
-              <td>Räystäät</td>
-              <td className="calc-detail">{fmt(raystaat)} m × {HINNOITTELU.raystaat_m}€</td>
-              <td className="calc-price">{fmt(raystaat_hinta)}€</td>
-            </tr>
-            {nostin_hinta > 0 && (
-              <tr>
-                <td>Nostin</td>
-                <td className="calc-detail">lisä</td>
-                <td className="calc-price">+{fmt(nostin_hinta)}€</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <BuildingCard b={b1} prefix="rak1_" label={getBuildingName(state, "rak1_")} />
+      {b2 && <BuildingCard b={b2} prefix="rak2_" label={getBuildingName(state, "rak2_")} />}
+      {b3 && <BuildingCard b={b3} prefix="rak3_" label={getBuildingName(state, "rak3_")} />}
 
-        {kertoimet.length > 0 && (
-          <div className="calc-kertoimet">
-            <span className="calc-kertoimet-label">Kertoimet:</span>
-            {kertoimet.map(k => (
-              <span key={k.label} className="calc-kerroin-tag">{k.label} ×{k.arvo.toFixed(2)}</span>
-            ))}
-          </div>
-        )}
-
-        <div className="calc-subtotal">Välisumma: {fmt(julkisivu_valisisumma)}€</div>
-        </>}
-      </div>
-
-      {/* OSIO 2: Timpurin työt */}
       {state.rak1_timpuri && (
         <div className="card calc-card">
           <button type="button" className="calc-toggle" onClick={() => toggle("timpuri")}>
@@ -1226,29 +1224,20 @@ function Page7({ state, update, onImageUpload }) {
             <span className={`calc-toggle-arrow ${openSections.timpuri ? "open" : ""}`}>▾</span>
           </button>
           {openSections.timpuri && <>
-
-          <Textarea label="Kuvaus töistä" value={state.timpuri_kuvaus} onChange={e => update("timpuri_kuvaus", e.target.value)} placeholder="Esim. lahovaurioiden korjaus pohjoisseinällä..." />
-          <Input label="Sijainti kohteessa" value={state.timpuri_sijainti} onChange={e => update("timpuri_sijainti", e.target.value)} placeholder="Esim. pohjoisseinä alakulma" />
-
-          {has_lahot && (
-            <>
+            <Textarea label="Kuvaus töistä" value={state.timpuri_kuvaus} onChange={e => update("timpuri_kuvaus", e.target.value)} placeholder="Esim. lahovaurioiden korjaus pohjoisseinällä..." />
+            <Input label="Sijainti kohteessa" value={state.timpuri_sijainti} onChange={e => update("timpuri_sijainti", e.target.value)} placeholder="Esim. pohjoisseinä alakulma" />
+            {has_lahot && (<>
               <h4 className="subsection-title">Lahot laudat</h4>
               <div className="grid-2">
                 <Input label="Lahoja lautoja (kpl)" type="number" value={state.timpuri_laudat_kpl} onChange={e => update("timpuri_laudat_kpl", e.target.value)} />
                 <Input label="Arvioitu pituus yht. (m)" type="number" value={state.timpuri_laudat_metrit} onChange={e => update("timpuri_laudat_metrit", e.target.value)} />
               </div>
-            </>
-          )}
-
-          {has_halkeamat && (
-            <>
+            </>)}
+            {has_halkeamat && (<>
               <h4 className="subsection-title">Halkeamat</h4>
               <Input label="Halkeamia (kpl)" type="number" value={state.timpuri_halkeamat_kpl} onChange={e => update("timpuri_halkeamat_kpl", e.target.value)} />
-            </>
-          )}
-
-          {has_rakenteelliset && (
-            <>
+            </>)}
+            {has_rakenteelliset && (<>
               <h4 className="subsection-title">Rakenteelliset korjaukset — tuntiarvio</h4>
               <p className="hint">Oletusarvot täytetty automaattisesti. Muuta tarvittaessa.</p>
               <div className="grid-3">
@@ -1256,33 +1245,27 @@ function Page7({ state, update, onImageUpload }) {
                 <Input label="Asennus (h)" type="number" value={state.timpuri_rak_asennus_h || "3"} onChange={e => update("timpuri_rak_asennus_h", e.target.value)} />
                 <Input label="Käsittely (h)" type="number" value={state.timpuri_rak_kasittely_h || "1"} onChange={e => update("timpuri_rak_kasittely_h", e.target.value)} />
               </div>
-            </>
-          )}
-
-          <Textarea label="Muuta huomioitavaa" value={state.timpuri_muuta} onChange={e => update("timpuri_muuta", e.target.value)} />
-
-          {tunnit_yht > 0 && (
-            <div className="calc-subtotal">
-              Purku {auto_purku.toFixed(1)} h + Asennus {auto_asennus.toFixed(1)} h + Käsittely {auto_kasittely.toFixed(1)} h
-              = {tunnit_yht.toFixed(1)} h × 65€ + 100€ aloitusmaksu = {fmt(timpuri_hinta)}€
+            </>)}
+            <Textarea label="Muuta huomioitavaa" value={state.timpuri_muuta} onChange={e => update("timpuri_muuta", e.target.value)} />
+            {tunnit_yht > 0 && (
+              <div className="calc-subtotal">
+                Purku {auto_purku.toFixed(1)} h + Asennus {auto_asennus.toFixed(1)} h + Käsittely {auto_kasittely.toFixed(1)} h = {tunnit_yht.toFixed(1)} h × 65€ + 100€ = {fmt(timpuri_hinta)}€
+              </div>
+            )}
+            <h4 className="subsection-title">Kuvat timpuritöistä</h4>
+            <div className="grid-2">
+              {Array.from({ length: 4 }, (_, i) => (
+                <ImageUploadField key={`timpuri_kuva_${i}`} label={`Kuva ${i + 1}`}
+                  previewUrl={state[`timpuri_kuva_${i}_preview`] || ""}
+                  isUploading={state[`timpuri_kuva_${i}_uploading`] || false}
+                  onFile={file => onImageUpload(file, `timpuri_kuva_${i}`)}
+                  onRemove={() => { update(`timpuri_kuva_${i}_url`, ""); update(`timpuri_kuva_${i}_preview`, ""); }} />
+              ))}
             </div>
-          )}
-
-          <h4 className="subsection-title">Kuvat timpuritöistä</h4>
-          <div className="grid-2">
-            {Array.from({ length: 4 }, (_, i) => (
-              <ImageUploadField key={`timpuri_kuva_${i}`} label={`Kuva ${i + 1}`}
-                previewUrl={state[`timpuri_kuva_${i}_preview`] || ""}
-                isUploading={state[`timpuri_kuva_${i}_uploading`] || false}
-                onFile={file => onImageUpload(file, `timpuri_kuva_${i}`)}
-                onRemove={() => { update(`timpuri_kuva_${i}_url`, ""); update(`timpuri_kuva_${i}_preview`, ""); }} />
-            ))}
-          </div>
           </>}
         </div>
       )}
 
-      {/* Kaiteet */}
       {show_kaiteet && (
         <div className="card calc-card">
           <button type="button" className="calc-toggle" onClick={() => toggle("kaiteet")}>
@@ -1291,15 +1274,12 @@ function Page7({ state, update, onImageUpload }) {
             <span className={`calc-toggle-arrow ${openSections.kaiteet ? "open" : ""}`}>▾</span>
           </button>
           {openSections.kaiteet && <>
-          <Input label="Kaiteiden metrit (jm)" type="number" value={state.kaiteet_metrit} onChange={e => update("kaiteet_metrit", e.target.value)} placeholder="0" />
-          {kaiteet_m_val > 0 && (
-            <div className="calc-subtotal">{fmt(kaiteet_m_val)} m × {HINNOITTELU.kaiteet_m}€ = {fmt(kaiteet_hinta)}€</div>
-          )}
+            <Input label="Kaiteiden metrit (jm)" type="number" value={state.kaiteet_metrit} onChange={e => update("kaiteet_metrit", e.target.value)} placeholder="0" />
+            {kaiteet_hinta > 0 && <div className="calc-subtotal">{fmt(parseFloat(state.kaiteet_metrit))} m × {HINNOITTELU.kaiteet_m}€ = {fmt(kaiteet_hinta)}€</div>}
           </>}
         </div>
       )}
 
-      {/* Aidat */}
       {show_aidat && (
         <div className="card calc-card">
           <button type="button" className="calc-toggle" onClick={() => toggle("aidat")}>
@@ -1308,15 +1288,12 @@ function Page7({ state, update, onImageUpload }) {
             <span className={`calc-toggle-arrow ${openSections.aidat ? "open" : ""}`}>▾</span>
           </button>
           {openSections.aidat && <>
-          <Input label="Aitojen metrit (jm)" type="number" value={state.aidat_metrit} onChange={e => update("aidat_metrit", e.target.value)} placeholder="0" />
-          {aidat_m_val > 0 && (
-            <div className="calc-subtotal">{fmt(aidat_m_val)} m × {HINNOITTELU.aidat_m}€ = {fmt(aidat_hinta)}€</div>
-          )}
+            <Input label="Aitojen metrit (jm)" type="number" value={state.aidat_metrit} onChange={e => update("aidat_metrit", e.target.value)} placeholder="0" />
+            {aidat_hinta > 0 && <div className="calc-subtotal">{fmt(parseFloat(state.aidat_metrit))} m × {HINNOITTELU.aidat_m}€ = {fmt(aidat_hinta)}€</div>}
           </>}
         </div>
       )}
 
-      {/* Ikkunapokat */}
       {show_ikkunapokat && (
         <div className="card calc-card">
           <button type="button" className="calc-toggle" onClick={() => toggle("ikkunapokat")}>
@@ -1325,15 +1302,12 @@ function Page7({ state, update, onImageUpload }) {
             <span className={`calc-toggle-arrow ${openSections.ikkunapokat ? "open" : ""}`}>▾</span>
           </button>
           {openSections.ikkunapokat && <>
-          <Input label="Ikkunoiden määrä (kpl)" type="number" value={state.ikkunapokat_kpl} onChange={e => update("ikkunapokat_kpl", e.target.value)} placeholder="0" />
-          {ikkunapokat_val > 0 && (
-            <div className="calc-subtotal">{fmt(ikkunapokat_val)} kpl × {HINNOITTELU.ikkunapokat_kpl}€ = {fmt(ikkunapokat_hinta)}€</div>
-          )}
+            <Input label="Ikkunoiden määrä (kpl)" type="number" value={state.ikkunapokat_kpl} onChange={e => update("ikkunapokat_kpl", e.target.value)} placeholder="0" />
+            {ikkunapokat_hinta > 0 && <div className="calc-subtotal">{fmt(parseFloat(state.ikkunapokat_kpl))} kpl × {HINNOITTELU.ikkunapokat_kpl}€ = {fmt(ikkunapokat_hinta)}€</div>}
           </>}
         </div>
       )}
 
-      {/* Sokkelin maalaus */}
       {show_sokkeli && (
         <div className="card calc-card">
           <button type="button" className="calc-toggle" onClick={() => toggle("sokkeli")}>
@@ -1342,17 +1316,12 @@ function Page7({ state, update, onImageUpload }) {
             <span className={`calc-toggle-arrow ${openSections.sokkeli ? "open" : ""}`}>▾</span>
           </button>
           {openSections.sokkeli && <>
-          <Input label="Sokkelin metrit (jm)" type="number" value={state.sokkeli_metrit} onChange={e => update("sokkeli_metrit", e.target.value)} placeholder="0" />
-          {(parseFloat(state.sokkeli_metrit) || 0) > 0 && (
-            <div className="calc-subtotal">
-              {fmt(parseFloat(state.sokkeli_metrit))} m × {HINNOITTELU.sokkeli_m}€ = {fmt((parseFloat(state.sokkeli_metrit) || 0) * HINNOITTELU.sokkeli_m)}€
-            </div>
-          )}
+            <Input label="Sokkelin metrit (jm)" type="number" value={state.sokkeli_metrit} onChange={e => update("sokkeli_metrit", e.target.value)} placeholder="0" />
+            {sokkeli_hinta > 0 && <div className="calc-subtotal">{fmt(parseFloat(state.sokkeli_metrit))} m × {HINNOITTELU.sokkeli_m}€ = {fmt(sokkeli_hinta)}€</div>}
           </>}
         </div>
       )}
 
-      {/* Terassi */}
       {show_terassi && (
         <div className="card calc-card">
           <button type="button" className="calc-toggle" onClick={() => toggle("terassi")}>
@@ -1361,17 +1330,12 @@ function Page7({ state, update, onImageUpload }) {
             <span className={`calc-toggle-arrow ${openSections.terassi ? "open" : ""}`}>▾</span>
           </button>
           {openSections.terassi && <>
-          <Input label="Terassin pinta-ala (m²)" type="number" value={state.terassi_m2_laskuri} onChange={e => update("terassi_m2_laskuri", e.target.value)} placeholder="0" />
-          {(parseFloat(state.terassi_m2_laskuri) || 0) > 0 && (
-            <div className="calc-subtotal">
-              {fmt(parseFloat(state.terassi_m2_laskuri))} m² × {HINNOITTELU.terassi_m2}€ = {fmt((parseFloat(state.terassi_m2_laskuri) || 0) * HINNOITTELU.terassi_m2)}€
-            </div>
-          )}
+            <Input label="Terassin pinta-ala (m²)" type="number" value={state.terassi_m2_laskuri} onChange={e => update("terassi_m2_laskuri", e.target.value)} placeholder="0" />
+            {terassi_hinta > 0 && <div className="calc-subtotal">{fmt(parseFloat(state.terassi_m2_laskuri))} m² × {HINNOITTELU.terassi_m2}€ = {fmt(terassi_hinta)}€</div>}
           </>}
         </div>
       )}
 
-      {/* Yhteenveto */}
       <div className="card calc-summary-card calc-card">
         <button type="button" className="calc-toggle" onClick={() => toggle("yhteenveto")}>
           <span className="calc-toggle-title">Yhteenveto</span>
@@ -1379,69 +1343,31 @@ function Page7({ state, update, onImageUpload }) {
           <span className={`calc-toggle-arrow ${openSections.yhteenveto ? "open" : ""}`}>▾</span>
         </button>
         {openSections.yhteenveto && <>
-        <table className="calc-table summary">
-          <tbody>
-            <tr>
-              <td>Julkisivun maalaus</td>
-              <td className="calc-price">{fmt(julkisivu_valisisumma)}€</td>
-            </tr>
-            {state.rak1_timpuri && timpuri_hinta > 0 && (
+          <table className="calc-table summary">
+            <tbody>
               <tr>
-                <td>Timpurin työt</td>
-                <td className="calc-price">{fmt(timpuri_hinta)}€</td>
+                <td>Julkisivun maalaus{state.rakennuksia > 1 ? ` (${state.rakennuksia} rak.)` : ""}</td>
+                <td className="calc-price">{fmt(julkisivu_yht)}€</td>
               </tr>
-            )}
-            {show_kaiteet && kaiteet_hinta > 0 && (
-              <tr>
-                <td>Kaiteet</td>
-                <td className="calc-price">{fmt(kaiteet_hinta)}€</td>
-              </tr>
-            )}
-            {show_aidat && aidat_hinta > 0 && (
-              <tr>
-                <td>Aidat</td>
-                <td className="calc-price">{fmt(aidat_hinta)}€</td>
-              </tr>
-            )}
-            {show_ikkunapokat && ikkunapokat_hinta > 0 && (
-              <tr>
-                <td>Ikkunapokat</td>
-                <td className="calc-price">{fmt(ikkunapokat_hinta)}€</td>
-              </tr>
-            )}
-            {show_sokkeli && sokkeli_hinta > 0 && (
-              <tr>
-                <td>Sokkelin maalaus</td>
-                <td className="calc-price">{fmt(sokkeli_hinta)}€</td>
-              </tr>
-            )}
-            {show_terassi && terassi_hinta > 0 && (
-              <tr>
-                <td>Terassi</td>
-                <td className="calc-price">{fmt(terassi_hinta)}€</td>
-              </tr>
-            )}
-          </tbody>
-          <tfoot>
-            <tr className="calc-row-subtotal">
-              <td>Välisumma (ALV 0%)</td>
-              <td className="calc-price">{fmt(valisisumma)}€</td>
-            </tr>
-            <tr className="calc-row-alv">
-              <td>ALV 25,5%</td>
-              <td className="calc-price">{fmt(alv)}€</td>
-            </tr>
-            <tr className="calc-row-total">
-              <td>Kokonaishinta (ALV sis.)</td>
-              <td className="calc-price">{fmt(kokonais)}€</td>
-            </tr>
-          </tfoot>
-        </table>
+              {state.rak1_timpuri && timpuri_hinta > 0 && <tr><td>Timpurin työt</td><td className="calc-price">{fmt(timpuri_hinta)}€</td></tr>}
+              {show_kaiteet && kaiteet_hinta > 0 && <tr><td>Kaiteet</td><td className="calc-price">{fmt(kaiteet_hinta)}€</td></tr>}
+              {show_aidat && aidat_hinta > 0 && <tr><td>Aidat</td><td className="calc-price">{fmt(aidat_hinta)}€</td></tr>}
+              {show_ikkunapokat && ikkunapokat_hinta > 0 && <tr><td>Ikkunapokat</td><td className="calc-price">{fmt(ikkunapokat_hinta)}€</td></tr>}
+              {show_sokkeli && sokkeli_hinta > 0 && <tr><td>Sokkelin maalaus</td><td className="calc-price">{fmt(sokkeli_hinta)}€</td></tr>}
+              {show_terassi && terassi_hinta > 0 && <tr><td>Terassi</td><td className="calc-price">{fmt(terassi_hinta)}€</td></tr>}
+            </tbody>
+            <tfoot>
+              <tr className="calc-row-subtotal"><td>Välisumma (ALV 0%)</td><td className="calc-price">{fmt(valisisumma)}€</td></tr>
+              <tr className="calc-row-alv"><td>ALV 25,5%</td><td className="calc-price">{fmt(alv)}€</td></tr>
+              <tr className="calc-row-total"><td>Kokonaishinta (ALV sis.)</td><td className="calc-price">{fmt(kokonais)}€</td></tr>
+            </tfoot>
+          </table>
         </>}
       </div>
     </div>
   );
 }
+
 
 // ─── PAGE 8: TARJOUS ────────────────────────────────────────────────────────
 function Page8({ state, update, onGenerateTarjous }) {
@@ -1821,7 +1747,9 @@ function buildPayload(s) {
       // Työvaiheet
       ...tvForm,
       // Laskuri & timpuri data
-      kerrokset_lkm: s.kerrokset_lkm || "1",
+      rak1_kerrokset_lkm: s.rak1_kerrokset_lkm || "1",
+      rak2_kerrokset_lkm: s.rak2_kerrokset_lkm || "1",
+      rak3_kerrokset_lkm: s.rak3_kerrokset_lkm || "1",
       sokkeli_metrit: s.sokkeli_metrit || "",
       terassi_m2_laskuri: s.terassi_m2_laskuri || "",
       kaiteet_metrit: s.kaiteet_metrit || "",
@@ -1852,14 +1780,18 @@ function buildPayload(s) {
       // Lasketut hinnat
       ...(() => {
         const checks = [...(s.maalataan_check || []), ...(s.optio_check || [])];
-        const pintaala = parseFloat(s.rak1_pintaala) || 0;
-        const raystaat = parseFloat(s.rak1_raystasmetrit) || 0;
-        const kerroin_maasto = HINNOITTELU.kertoimet.maasto[s.maasto] || 1.0;
-        const kerroin_kerrokset = HINNOITTELU.kertoimet.kerrokset[s.kerrokset_lkm] || 1.0;
-        const kerroin_hilseily = HINNOITTELU.kertoimet.hilseily[s.rak1_hilseily] || 1.0;
-        const kerroin_pohja = HINNOITTELU.kertoimet.pohja[s.rak1_maali_tyyppi] || 1.0;
-        const yhdistetty = kerroin_maasto * kerroin_kerrokset * kerroin_hilseily * kerroin_pohja;
-        const julkisivu = pintaala * HINNOITTELU.julkisivu_m2 * yhdistetty + raystaat * HINNOITTELU.raystaat_m + (s.rak1_nostin !== "ei" ? HINNOITTELU.nostinlisa : 0);
+        const calcB = (prefix, maastoKey) => {
+          const pa = parseFloat(s[`${prefix}pintaala`]) || 0;
+          const ry = parseFloat(s[`${prefix}raystasmetrit`]) || 0;
+          const km = HINNOITTELU.kertoimet.maasto[s[maastoKey]] || 1.0;
+          const kk = HINNOITTELU.kertoimet.kerrokset[s[`${prefix}kerrokset_lkm`]] || 1.0;
+          const kh = HINNOITTELU.kertoimet.hilseily[s[`${prefix}hilseily`]] || 1.0;
+          const kp = HINNOITTELU.kertoimet.pohja[s[`${prefix}pohjamateriaali`]] || 1.0;
+          const kpk = HINNOITTELU.kertoimet.pintakerrokset[s[`${prefix}kerrokset`]] || 1.0;
+          const nos = s[`${prefix}nostin`] === "kylla" ? HINNOITTELU.nostinlisa : 0;
+          return Math.round(pa * HINNOITTELU.julkisivu_m2 * km * kk * kh * kp * kpk) + Math.round(ry * HINNOITTELU.raystaat_m) + nos;
+        };
+        const julkisivu = calcB("rak1_", "maasto") + (s.rakennuksia >= 2 ? calcB("rak2_", "maasto2") : 0) + (s.rakennuksia >= 3 ? calcB("rak3_", "maasto3") : 0);
         const purku = parseFloat(s.timpuri_purku_h) || 0;
         const asen = parseFloat(s.timpuri_asennus_h) || 0;
         const kas = parseFloat(s.timpuri_kasittely_h) || 0;
