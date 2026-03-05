@@ -1127,6 +1127,51 @@ body {
   border: 2px solid var(--navy);
 }
 
+/* ── CALC TOGGLE ────────────────────────────────────────── */
+.calc-card { padding: 0; overflow: hidden; }
+.calc-card > *:not(.calc-toggle) { padding-left: 24px; padding-right: 24px; }
+.calc-card > .calc-table { margin: 0 24px; width: calc(100% - 48px); }
+.calc-card > .calc-kertoimet { padding: 0 24px 8px; }
+.calc-card > .calc-subtotal { margin: 12px 24px 20px; }
+.calc-card > table.calc-table.summary { margin: 0 24px 20px; width: calc(100% - 48px); }
+
+.calc-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 24px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.calc-toggle:hover { background: var(--light-bg); }
+
+.calc-toggle-title {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.calc-toggle-summary {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--orange);
+  font-variant-numeric: tabular-nums;
+}
+.calc-toggle-arrow {
+  font-size: 14px;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+  transform: rotate(-90deg);
+}
+.calc-toggle-arrow.open {
+  transform: rotate(0deg);
+}
+
 /* ── RESPONSIVE ──────────────────────────────────────────── */
 @media (max-width: 640px) {
   .sidebar { display: none; }
