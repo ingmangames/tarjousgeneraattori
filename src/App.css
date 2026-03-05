@@ -1016,6 +1016,117 @@ body {
   font-size: 13px;
 }
 
+/* ── LASKURI (Page 7) ────────────────────────────────────── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--navy);
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.toggle-row input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--orange);
+}
+
+.subsection-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--navy);
+  margin: 20px 0 8px;
+}
+
+.calc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+
+.calc-table td {
+  padding: 8px 4px;
+  font-size: 14px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.calc-table .calc-detail {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.calc-table .calc-price {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.calc-table tfoot td {
+  border-bottom: none;
+  padding-top: 12px;
+}
+
+.calc-row-subtotal td {
+  font-weight: 500;
+  border-top: 2px solid var(--border);
+}
+
+.calc-row-alv td {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.calc-row-total td {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--navy);
+  border-top: 2px solid var(--navy);
+  padding-top: 14px;
+}
+
+.calc-kertoimet {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+
+.calc-kertoimet-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.calc-kerroin-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 20px;
+  background: #fff3e0;
+  color: var(--orange);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.calc-subtotal {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.calc-summary-card {
+  border: 2px solid var(--navy);
+}
+
 /* ── RESPONSIVE ──────────────────────────────────────────── */
 @media (max-width: 640px) {
   .sidebar { display: none; }
