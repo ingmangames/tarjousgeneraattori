@@ -208,16 +208,41 @@ const TUOTTEET = {
   },
 };
 
-const MUUT_MATERIAALIT_OPTIONS = [
-  "Metallimaali — Ferrex Combi",
-  "Terassiöljy — Valtti Plus Terrace Oil",
-  "Terassiöljy — Valtti Terrace Oil",
-  "Sokkelimaali — Yki Sokkelimaali",
-  "Ovimaali — Unica Akva",
-  "Ovimaali — Unica Akva Lakka",
-  "Ovimaali — Futura Aqua 20",
-  "Kaidemaali — Aitamaali",
-];
+const MUUT_MATERIAALIT = {
+  "Metallimaali — Ferrex Combi": {
+    kaytto: "Metallipintojen ruosteenestomaalaus. Pohja- ja pintamaali samassa.",
+    url: "https://www.teknos.com/fi-FI/kuluttajat-ja-ammattilaiset/tuotteet/ferrex-combi-ruosteenestomaali/"
+  },
+  "Terassiöljy — Valtti Plus Terrace Oil": {
+    kaytto: "Terassien ja laitureiden öljykäsittelyyn.",
+    url: "https://tikkurila.fi/tuotteet/valtti-plus-terrace-oil"
+  },
+  "Terassiöljy — Valtti Terrace Oil": {
+    kaytto: "Terassien ja kalusteiden öljykäsittelyyn.",
+    url: "https://tikkurila.fi/tuotteet/valtti-terrace-oil"
+  },
+  "Sokkelimaali — Yki Sokkelimaali": {
+    kaytto: "Betoni- ja sokkelipintojen maalaus.",
+    url: "https://tikkurila.fi/tuotteet/yki-sokkelimaali"
+  },
+  "Ovimaali — Unica Akva": {
+    kaytto: "Ovien ja karmien maalaus sisä- ja ulkokäytössä.",
+    url: "https://tikkurila.fi/tuotteet/unica-akva-maali"
+  },
+  "Ovimaali — Unica Akva Lakka": {
+    kaytto: "Puupintojen kuultava lakkaus.",
+    url: "https://tikkurila.fi/tuotteet/unica-akva-lakka"
+  },
+  "Ovimaali — Futura Aqua 20": {
+    kaytto: "Ovien ja kalusteiden kulutusta kestävä maalaus.",
+    url: "https://www.teknos.com/fi-FI/kuluttajat-ja-ammattilaiset/tuotteet/futura-aqua-20/"
+  },
+  "Kaidemaali — Aitamaali": {
+    kaytto: "Puuaidoille ja kaiderakenteille.",
+    url: "https://tikkurila.fi/tuotteet/aitamaali"
+  },
+};
+const MUUT_MATERIAALIT_OPTIONS = Object.keys(MUUT_MATERIAALIT);
 
 // ─── MAPPINGS ────────────────────────────────────────────────────────────────
 const POHJAMATERIAALI_MAP = {
@@ -1964,6 +1989,9 @@ function buildPayload(s) {
       ...(s.rakennuksia >= 3 ? matData("rak3_", "kohde3_") : {}),
       // Muut materiaalit
       materiaali_1: muut[0] || "", materiaali_2: muut[1] || "", materiaali_3: muut[2] || "",
+      materiaali_1_kaytto: muut[0] ? (MUUT_MATERIAALIT[muut[0]]?.kaytto || "") : "",
+      materiaali_2_kaytto: muut[1] ? (MUUT_MATERIAALIT[muut[1]]?.kaytto || "") : "",
+      materiaali_3_kaytto: muut[2] ? (MUUT_MATERIAALIT[muut[2]]?.kaytto || "") : "",
       // Nostin per rakennus
       rak1_nostin: s.rak1_nostin,
       rak2_nostin: s.rak2_nostin,
