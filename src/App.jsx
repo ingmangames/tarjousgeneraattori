@@ -3,28 +3,97 @@ import { useState, useCallback, useEffect, useRef } from "react";
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const N8N_WEBHOOK_URL = "https://n8n-bud4.onrender.com/webhook/tarjous";
 const TARJOUS_WEBHOOK_URL = "https://n8n-bud4.onrender.com/webhook/tarjous-generaattori";
-const LS_KEY = "pl_tarjous_v2";
+const LS_KEY     = "pl_tarjous_v3";
+const LS_VERSION = 3;
 
 // ─── HINNOITTELU ────────────────────────────────────────────────────────────
 const HINNOITTELU = {
-  julkisivu_m2: 40,
-  raystaat_m: 20,
-  nostinlisa: 350,
-  sokkeli_m: 25,
-  terassi_m2: 40,
-  kaiteet_m: 50,
-  aidat_m: 50,
-  ikkunapokat_kpl: 60,
-  timpuri_aloitus: 100,
-  timpuri_tuntihinta: 65,
+  julkisivu_t:    0.21529,
+  umpiräystäs_t:  0.10177,
+  avoräystäs_t:   0.12526,
+
+  hintakäyrä: [
+    [1,   2250],
+    [2,   4010],
+    [2.5, 4620],
+    [3,   5350],
+    [3.5, 5650],
+    [4,   6350],
+    [4.5, 6950],
+    [5,   7450],
+    [5.5, 8030],
+    [6,   8730],
+  ],
+
   kertoimet: {
-    maasto: { helppo: 1.0, normaali: 1.10, haastava: 1.20 },
-    kerrokset: { "1": 1.0, "1.5": 1.15, "2": 1.20 },
-    hilseily: { "ei juuri lainkaan": 1.0, paikoittain: 1.10, laajasti: 1.15 },
-    pohja: { akrylaatti: 1.0, oljymaali: 1.10, kuullote: 1.05 },
+    maasto:         { helppo: 1.0, normaali: 1.10, haastava: 1.20 },
+    kerrokset:      { "1": 1.0, "1.5": 1.15, "2": 1.20 },
+    lika:           { ei: 0, jonkin_verran: 0.04, paljon: 0.08 },
+    hilseily:       { "ei juuri lainkaan": 0, paikoittain: 0.06, laajasti: 0.14 },
     pintakerrokset: { "1": 1.0, "2": 1.40 },
   },
+
+  minimihinta:         2250,
+  oljymaali_lisa:       200,
+  nostin_pv:             60,
+
+  sokkeli_m:             25,
+  terassi_m2:            40,
+  kaiteet_m:             50,
+  aidat_m:               50,
+  ikkunapokat_kpl:       60,
+  timpuri_aloitus:      100,
+  timpuri_tuntihinta:    65,
 };
+
+// ─── HINNOITTELUFUNKTIOT ────────────────────────────────────────────────────
+function interpolatePaivakayra(paivat) {
+  const k = HINNOITTELU.hintakäyrä;
+  if (paivat <= k[0][0]) return k[0][1];
+  if (paivat >= k[k.length - 1][0]) return k[k.length - 1][1];
+  for (let i = 0; i < k.length - 1; i++) {
+    const [d0, h0] = k[i];
+    const [d1, h1] = k[i + 1];
+    if (paivat >= d0 && paivat <= d1) {
+      return h0 + ((paivat - d0) / (d1 - d0)) * (h1 - h0);
+    }
+  }
+  return k[k.length - 1][1];
+}
+
+function calcBuildingHinta(s, prefix, maastoKey) {
+  const pintaala    = parseFloat(s[`${prefix}pintaala`])      || 0;
+  const umpi        = parseFloat(s[`${prefix}raystasmetrit`]) || 0;
+  const avo         = parseFloat(s[`${prefix}avoraystäs`])    || 0;
+  const k_kerrokset = HINNOITTELU.kertoimet.kerrokset[s[`${prefix}kerrokset_lkm`]] || 1.0;
+  const k_maasto    = HINNOITTELU.kertoimet.maasto[s[maastoKey]]                    || 1.0;
+  const lika_t      = HINNOITTELU.kertoimet.lika[s[`${prefix}lika`]]               ?? 0;
+  const hilseily_t  = HINNOITTELU.kertoimet.hilseily[s[`${prefix}hilseily`]]        ?? 0;
+  const k_pinta     = HINNOITTELU.kertoimet.pintakerrokset[s[`${prefix}kerrokset`]] || 1.0;
+  const oljymaali   = s[`${prefix}pohjamateriaali`] === "oljymaali"
+                        ? HINNOITTELU.oljymaali_lisa : 0;
+  const nostinpaivat = parseFloat(s[`${prefix}nostinpaivat`]) || 0;
+
+  const perustunnit = pintaala * HINNOITTELU.julkisivu_t
+                    + umpi     * HINNOITTELU.umpiräystäs_t
+                    + avo      * HINNOITTELU.avoräystäs_t;
+  const pohjatyot   = pintaala * (lika_t + hilseily_t);
+  const koktunnit   = (perustunnit + pohjatyot) * k_kerrokset * k_maasto * k_pinta;
+  const tyopaivat   = koktunnit / 16;
+  const perushinta  = interpolatePaivakayra(tyopaivat);
+  const nostin      = nostinpaivat * HINNOITTELU.nostin_pv;
+  const subtotal    = Math.max(
+    Math.round(perushinta + oljymaali + nostin),
+    HINNOITTELU.minimihinta
+  );
+
+  return {
+    pintaala, umpi, avo,
+    perustunnit, pohjatyot, koktunnit, tyopaivat,
+    perushinta, oljymaali, nostin, subtotal,
+    k_kerrokset, k_maasto, k_pinta,
+  };
+}
 
 // ─── NAVIGATION ──────────────────────────────────────────────────────────────
 const STEPS = [
@@ -88,9 +157,15 @@ const KUNTO_OPTIONS = [
 ];
 
 const VAURIO_OPTIONS = [
-  { value: "ei juuri lainkaan", label: "Ei juuri lainkaan" },
-  { value: "paikoittain", label: "Paikoittain" },
-  { value: "laajasti", label: "Laajasti" },
+  { value: "ei juuri lainkaan", label: "Ei" },
+  { value: "paikoittain",       label: "Paikoittain" },
+  { value: "laajasti",          label: "Laajasti" },
+];
+
+const LIKA_OPTIONS = [
+  { value: "ei",            label: "Ei" },
+  { value: "jonkin_verran", label: "Jonkin verran" },
+  { value: "paljon",        label: "Paljon" },
 ];
 
 const KERROS_OPTIONS = [
@@ -280,8 +355,11 @@ function buildingDefaults(prefix, extra = {}) {
     [`${prefix}timpuri_check`]: [],
     [`${prefix}timpuri_muu`]: "",
     [`${prefix}nostin`]: "ei",
+    [`${prefix}nostinpaivat`]: "",
     [`${prefix}pintaala`]: "",
     [`${prefix}raystasmetrit`]: "",
+    [`${prefix}avoraystäs`]: "",
+    [`${prefix}lika`]:       "jonkin_verran",
     [`${prefix}pesuaine`]: "homepesu",
     [`${prefix}maali_tyyppi`]: "vesiohenteinen",
     [`${prefix}pohjamaali_idx`]: 0,
@@ -371,8 +449,14 @@ function initState() {
     const saved = localStorage.getItem(LS_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
+      if (parsed.__version !== LS_VERSION) {
+        localStorage.removeItem(LS_KEY);
+        return defaultState();
+      }
       const clean = { ...defaultState(), ...parsed };
-      Object.keys(clean).forEach(k => { if (k.endsWith("_uploading")) clean[k] = false; });
+      Object.keys(clean).forEach(k => {
+        if (k.endsWith("_uploading")) clean[k] = false;
+      });
       return clean;
     }
   } catch {}
@@ -607,6 +691,7 @@ function BuildingContent({ prefix, state, update }) {
       {/* Vauriot */}
       <label className="field-label" style={{ marginBottom: 8 }}>Vauriot</label>
       <div className="vauriot-grid">
+        <Select label="Lika / home" required options={LIKA_OPTIONS} value={state[`${prefix}lika`]} onChange={e => update(`${prefix}lika`, e.target.value)} />
         <Select label="Hilseilyä" required options={VAURIO_OPTIONS} value={state[`${prefix}hilseily`]} onChange={e => update(`${prefix}hilseily`, e.target.value)} />
       </div>
 
@@ -618,9 +703,6 @@ function BuildingContent({ prefix, state, update }) {
       {state[`${prefix}timpuri`] && (
         <Checklist options={TIMPURI_CHECKS} checked={state[`${prefix}timpuri_check`]} onChange={v => update(`${prefix}timpuri_check`, v)} extraValue={state[`${prefix}timpuri_muu`]} onExtraChange={v => update(`${prefix}timpuri_muu`, v)} extraPlaceholder="Muu timpurityö..." />
       )}
-
-      {/* Nostin */}
-      <Select label="Nostintarve" options={NOSTIN_OPTIONS} value={state[`${prefix}nostin`]} onChange={e => update(`${prefix}nostin`, e.target.value)} />
 
       {/* Maasto */}
       {prefix === "rak1_" && (
@@ -636,7 +718,10 @@ function BuildingContent({ prefix, state, update }) {
       {/* Mittaukset */}
       <div className="grid-2">
         <Input label="Pinta-ala (m²)" required type="number" value={state[`${prefix}pintaala`]} onChange={e => update(`${prefix}pintaala`, e.target.value)} placeholder="250" />
-        <Input label="Räystäsmetrit (jm)" type="number" value={state[`${prefix}raystasmetrit`]} onChange={e => update(`${prefix}raystasmetrit`, e.target.value)} placeholder="45" />
+        <Input label="Umpiräystäs (jm)" type="number" value={state[`${prefix}raystasmetrit`]} onChange={e => update(`${prefix}raystasmetrit`, e.target.value)} placeholder="45" />
+      </div>
+      <div className="grid-2">
+        <Input label="Avoin räystäs (jm)" type="number" value={state[`${prefix}avoraystäs`]} onChange={e => update(`${prefix}avoraystäs`, e.target.value)} placeholder="0" />
       </div>
     </>
   );
@@ -1104,33 +1189,12 @@ function Page7({ state, update, onImageUpload }) {
   const toggle = (key) => setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
   const toggleBuilding = (key) => setOpenBuildings(prev => ({ ...prev, [key]: !prev[key] }));
 
-  const fmt = (n) => Math.round(n).toLocaleString("fi-FI", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const fmt    = (n) => Math.round(n).toLocaleString("fi-FI");
+  const fmtDec = (n) => n.toLocaleString("fi-FI", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-  function calcBuilding(prefix, maastoKey) {
-    const pintaala = parseFloat(state[`${prefix}pintaala`]) || 0;
-    const raystaat = parseFloat(state[`${prefix}raystasmetrit`]) || 0;
-    const k_maasto = HINNOITTELU.kertoimet.maasto[state[maastoKey]] || 1.0;
-    const k_kerrokset = HINNOITTELU.kertoimet.kerrokset[state[`${prefix}kerrokset_lkm`]] || 1.0;
-    const k_hilseily = HINNOITTELU.kertoimet.hilseily[state[`${prefix}hilseily`]] || 1.0;
-    const k_pohja = HINNOITTELU.kertoimet.pohja[state[`${prefix}pohjamateriaali`]] || 1.0;
-    const k_pintakerrokset = HINNOITTELU.kertoimet.pintakerrokset[state[`${prefix}kerrokset`]] || 1.0;
-    const k_yht = k_maasto * k_kerrokset * k_hilseily * k_pohja * k_pintakerrokset;
-    const julkisivu = Math.round(pintaala * HINNOITTELU.julkisivu_m2 * k_yht);
-    const raystaat_h = Math.round(raystaat * HINNOITTELU.raystaat_m);
-    const nostin = state[`${prefix}nostin`] === "kylla" ? HINNOITTELU.nostinlisa : 0;
-    const subtotal = julkisivu + raystaat_h + nostin;
-    const kertoimet_list = [];
-    if (k_maasto !== 1.0) kertoimet_list.push({ label: "Maasto", arvo: k_maasto });
-    if (k_kerrokset !== 1.0) kertoimet_list.push({ label: "Kerrokset", arvo: k_kerrokset });
-    if (k_hilseily !== 1.0) kertoimet_list.push({ label: "Hilseily", arvo: k_hilseily });
-    if (k_pohja !== 1.0) kertoimet_list.push({ label: "Pohjakunto", arvo: k_pohja });
-    if (k_pintakerrokset !== 1.0) kertoimet_list.push({ label: "2-kertainen", arvo: k_pintakerrokset });
-    return { pintaala, raystaat, julkisivu, raystaat_h, nostin, subtotal, k_yht, kertoimet_list };
-  }
-
-  const b1 = calcBuilding("rak1_", "maasto");
-  const b2 = state.rakennuksia >= 2 ? calcBuilding("rak2_", "maasto2") : null;
-  const b3 = state.rakennuksia >= 3 ? calcBuilding("rak3_", "maasto3") : null;
+  const b1 = calcBuildingHinta(state, "rak1_", "maasto");
+  const b2 = state.rakennuksia >= 2 ? calcBuildingHinta(state, "rak2_", "maasto2") : null;
+  const b3 = state.rakennuksia >= 3 ? calcBuildingHinta(state, "rak3_", "maasto3") : null;
   const julkisivu_yht = b1.subtotal + (b2?.subtotal || 0) + (b3?.subtotal || 0);
 
   // Timpuri
@@ -1159,51 +1223,85 @@ function Page7({ state, update, onImageUpload }) {
   const aidat_hinta = show_aidat ? Math.round((parseFloat(state.aidat_metrit) || 0) * HINNOITTELU.aidat_m) : 0;
   const ikkunapokat_hinta = show_ikkunapokat ? Math.round((parseFloat(state.ikkunapokat_kpl) || 0) * HINNOITTELU.ikkunapokat_kpl) : 0;
 
-  const valisisumma = julkisivu_yht + (state.rak1_timpuri ? timpuri_hinta : 0) + sokkeli_hinta + terassi_hinta + kaiteet_hinta + aidat_hinta + ikkunapokat_hinta;
-  const alv = Math.round(valisisumma * 0.255);
-  const kokonais = valisisumma + alv;
+  const kokonais = julkisivu_yht + (state.rak1_timpuri ? timpuri_hinta : 0) + sokkeli_hinta + terassi_hinta + kaiteet_hinta + aidat_hinta + ikkunapokat_hinta;
+  const valisisumma = Math.round(kokonais / 1.255);
+  const alv = kokonais - valisisumma;
 
   const BuildingCard = ({ b, prefix, label }) => (
     <div className="card calc-card">
       <button type="button" className="calc-toggle" onClick={() => toggleBuilding(prefix)}>
         <span className="calc-toggle-title">Julkisivun maalaus — {label}</span>
-        <span className="calc-toggle-summary">{fmt(b.subtotal)}€</span>
+        <span className="calc-toggle-summary">{fmt(b.subtotal)} €</span>
         <span className={`calc-toggle-arrow ${openBuildings[prefix] ? "open" : ""}`}>▾</span>
       </button>
       {openBuildings[prefix] && <>
         <Select label="Rakennuksen kerroksia" options={KERROKSET_OPTIONS}
           value={state[`${prefix}kerrokset_lkm`]}
           onChange={e => update(`${prefix}kerrokset_lkm`, e.target.value)} />
+        <Input label="Nostinpäivät (kpl)" type="number"
+          value={state[`${prefix}nostinpaivat`]}
+          onChange={e => update(`${prefix}nostinpaivat`, e.target.value)}
+          placeholder="0" />
         <table className="calc-table">
           <tbody>
             <tr>
-              <td>Julkisivu</td>
-              <td className="calc-detail">{fmt(b.pintaala)} m² × {HINNOITTELU.julkisivu_m2}€{b.k_yht !== 1.0 ? ` × ${b.k_yht.toFixed(2)}` : ""}</td>
-              <td className="calc-price">{fmt(b.julkisivu)}€</td>
+              <td>Perustunnit</td>
+              <td className="calc-detail">
+                {fmt(b.pintaala)} m² × {HINNOITTELU.julkisivu_t.toFixed(4)} h
+                {b.umpi > 0 && ` + ${fmt(b.umpi)} jm umpi`}
+                {b.avo  > 0 && ` + ${fmt(b.avo)} jm avo`}
+              </td>
+              <td className="calc-price">{fmtDec(b.perustunnit)} h</td>
             </tr>
             <tr>
-              <td>Räystäät</td>
-              <td className="calc-detail">{fmt(b.raystaat)} m × {HINNOITTELU.raystaat_m}€</td>
-              <td className="calc-price">{fmt(b.raystaat_h)}€</td>
+              <td>Pohjatyötunnit</td>
+              <td className="calc-detail">lika + hilseily × {fmt(b.pintaala)} m²</td>
+              <td className="calc-price">{fmtDec(b.pohjatyot)} h</td>
             </tr>
+            <tr>
+              <td>Kokonaistunnit</td>
+              <td className="calc-detail">
+                × kerr. {b.k_kerrokset.toFixed(2)} × maasto {b.k_maasto.toFixed(2)}
+                {b.k_pinta !== 1.0 && ` × 2-kerros ${b.k_pinta.toFixed(2)}`}
+              </td>
+              <td className="calc-price">{fmtDec(b.koktunnit)} h</td>
+            </tr>
+            <tr>
+              <td>Työpäivät</td>
+              <td className="calc-detail">÷ 16 h/pv</td>
+              <td className="calc-price">
+                {b.tyopaivat.toLocaleString("fi-FI", {
+                  minimumFractionDigits: 2, maximumFractionDigits: 2
+                })} pv
+              </td>
+            </tr>
+            <tr>
+              <td>Hinta (käyrältä)</td>
+              <td className="calc-detail">lineaarinen interpolointi</td>
+              <td className="calc-price">{fmt(b.perushinta)} €</td>
+            </tr>
+            {b.oljymaali > 0 && (
+              <tr>
+                <td>Öljymaali-lisä</td>
+                <td className="calc-detail">kiinteä</td>
+                <td className="calc-price">+{fmt(b.oljymaali)} €</td>
+              </tr>
+            )}
             {b.nostin > 0 && (
               <tr>
                 <td>Nostin</td>
-                <td className="calc-detail">lisä</td>
-                <td className="calc-price">+{fmt(b.nostin)}€</td>
+                <td className="calc-detail">
+                  {parseFloat(state[`${prefix}nostinpaivat`])} pv × {HINNOITTELU.nostin_pv} €
+                </td>
+                <td className="calc-price">+{fmt(b.nostin)} €</td>
               </tr>
             )}
           </tbody>
         </table>
-        {b.kertoimet_list.length > 0 && (
-          <div className="calc-kertoimet">
-            <span className="calc-kertoimet-label">Kertoimet:</span>
-            {b.kertoimet_list.map(k => (
-              <span key={k.label} className="calc-kerroin-tag">{k.label} ×{k.arvo.toFixed(2)}</span>
-            ))}
-          </div>
-        )}
-        <div className="calc-subtotal">Välisumma: {fmt(b.subtotal)}€</div>
+        <div className="calc-subtotal">
+          Yhteensä: {fmt(b.subtotal)} €
+          {b.subtotal === HINNOITTELU.minimihinta ? " (minimihinta)" : ""}
+        </div>
       </>}
     </div>
   );
@@ -1413,10 +1511,11 @@ export default function App() {
   const [status, setStatus] = useState("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [downloadUrl, setDownloadUrl] = useState("");
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   // localStorage automaattitallennus
   useEffect(() => {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {}
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ ...state, __version: LS_VERSION })); } catch {}
   }, [state]);
 
   const update = useCallback((key, value) => {
@@ -1527,7 +1626,22 @@ export default function App() {
 
   return (
     <div className="app">
-      <aside className="sidebar">
+
+      {/* Mobiili overlay — tummentaa taustan kun drawer auki */}
+      {isMobileOpen && (
+        <div className="sidebar-overlay" onClick={() => setIsMobileOpen(false)} />
+      )}
+
+      <aside className={`sidebar ${isMobileOpen ? "sidebar-open" : ""}`}>
+        {/* Sulje-nappi drawerin sisällä */}
+        <button
+          className="sidebar-close"
+          onClick={() => setIsMobileOpen(false)}
+          type="button"
+        >
+          ✕
+        </button>
+
         <div className="brand">
           <div className="brand-mark">PL</div>
           <div>
@@ -1537,7 +1651,7 @@ export default function App() {
         </div>
         <nav className="steps-nav">
           {STEPS.map(s => (
-            <button key={s.id} className={`nav-step ${step === s.id ? "active" : ""} ${step > s.id ? "done" : ""}`} onClick={() => setStep(s.id)} type="button">
+            <button key={s.id} className={`nav-step ${step === s.id ? "active" : ""} ${step > s.id ? "done" : ""}`} onClick={() => { setStep(s.id); setIsMobileOpen(false); }} type="button">
               <span className="step-dot">{step > s.id ? "✓" : s.id}</span>
               {s.label}
             </button>
@@ -1552,6 +1666,22 @@ export default function App() {
       </aside>
 
       <main className="main">
+
+        {/* Mobiili topbar */}
+        <div className="mobile-topbar">
+          <button
+            className="hamburger"
+            onClick={() => setIsMobileOpen(true)}
+            type="button"
+          >
+            ☰
+          </button>
+          <span className="mobile-step-label">
+            {STEPS.find(s => s.id === step)?.label}
+          </span>
+          <span className="mobile-step-count">{step} / {STEPS.length}</span>
+        </div>
+
         <div className="form-area">
           {status === "success" ? (
             <div className="success-screen">
@@ -1780,41 +1910,40 @@ function buildPayload(s) {
       // Lasketut hinnat
       ...(() => {
         const checks = [...(s.maalataan_check || []), ...(s.optio_check || [])];
-        const calcB = (prefix, maastoKey) => {
-          const pa = parseFloat(s[`${prefix}pintaala`]) || 0;
-          const ry = parseFloat(s[`${prefix}raystasmetrit`]) || 0;
-          const km = HINNOITTELU.kertoimet.maasto[s[maastoKey]] || 1.0;
-          const kk = HINNOITTELU.kertoimet.kerrokset[s[`${prefix}kerrokset_lkm`]] || 1.0;
-          const kh = HINNOITTELU.kertoimet.hilseily[s[`${prefix}hilseily`]] || 1.0;
-          const kp = HINNOITTELU.kertoimet.pohja[s[`${prefix}pohjamateriaali`]] || 1.0;
-          const kpk = HINNOITTELU.kertoimet.pintakerrokset[s[`${prefix}kerrokset`]] || 1.0;
-          const nos = s[`${prefix}nostin`] === "kylla" ? HINNOITTELU.nostinlisa : 0;
-          return Math.round(pa * HINNOITTELU.julkisivu_m2 * km * kk * kh * kp * kpk) + Math.round(ry * HINNOITTELU.raystaat_m) + nos;
-        };
-        const julkisivu = calcB("rak1_", "maasto") + (s.rakennuksia >= 2 ? calcB("rak2_", "maasto2") : 0) + (s.rakennuksia >= 3 ? calcB("rak3_", "maasto3") : 0);
-        const purku = parseFloat(s.timpuri_purku_h) || 0;
-        const asen = parseFloat(s.timpuri_asennus_h) || 0;
-        const kas = parseFloat(s.timpuri_kasittely_h) || 0;
-        const tYht = purku + asen + kas;
-        const timpuri = s.rak1_timpuri && tYht > 0 ? tYht * HINNOITTELU.timpuri_tuntihinta + HINNOITTELU.timpuri_aloitus : 0;
-        const sokkeli = checks.includes("Sokkeli") ? (parseFloat(s.sokkeli_metrit) || 0) * HINNOITTELU.sokkeli_m : 0;
-        const terassi = checks.includes("Terassi") ? (parseFloat(s.terassi_m2_laskuri) || 0) * HINNOITTELU.terassi_m2 : 0;
-        const kaiteet = checks.includes("Kaiteet") ? (parseFloat(s.kaiteet_metrit) || 0) * HINNOITTELU.kaiteet_m : 0;
-        const aidat = checks.includes("Aidat") ? (parseFloat(s.aidat_metrit) || 0) * HINNOITTELU.aidat_m : 0;
-        const ikkunapokat = checks.includes("Ikkunanpokat") ? (parseFloat(s.ikkunapokat_kpl) || 0) * HINNOITTELU.ikkunapokat_kpl : 0;
-        const vali = julkisivu + timpuri + sokkeli + terassi + kaiteet + aidat + ikkunapokat;
-        const alvVal = vali * 0.255;
+        const bh1 = calcBuildingHinta(s, "rak1_", "maasto");
+        const bh2 = s.rakennuksia >= 2 ? calcBuildingHinta(s, "rak2_", "maasto2") : null;
+        const bh3 = s.rakennuksia >= 3 ? calcBuildingHinta(s, "rak3_", "maasto3") : null;
+        const julkisivu = bh1.subtotal + (bh2?.subtotal || 0) + (bh3?.subtotal || 0);
+
+        const tYht    = (parseFloat(s.timpuri_purku_h)      || 0)
+                      + (parseFloat(s.timpuri_asennus_h)    || 0)
+                      + (parseFloat(s.timpuri_kasittely_h)  || 0);
+        const timpuri = s.rak1_timpuri && tYht > 0
+                        ? tYht * HINNOITTELU.timpuri_tuntihinta + HINNOITTELU.timpuri_aloitus : 0;
+        const sokkeli = checks.includes("Sokkeli")
+                        ? (parseFloat(s.sokkeli_metrit)     || 0) * HINNOITTELU.sokkeli_m    : 0;
+        const terassi = checks.includes("Terassi")
+                        ? (parseFloat(s.terassi_m2_laskuri) || 0) * HINNOITTELU.terassi_m2  : 0;
+        const kaiteet = checks.includes("Kaiteet")
+                        ? (parseFloat(s.kaiteet_metrit)     || 0) * HINNOITTELU.kaiteet_m    : 0;
+        const aidat   = checks.includes("Aidat")
+                        ? (parseFloat(s.aidat_metrit)       || 0) * HINNOITTELU.aidat_m      : 0;
+        const ikkunat = checks.includes("Ikkunanpokat")
+                        ? (parseFloat(s.ikkunapokat_kpl)    || 0) * HINNOITTELU.ikkunapokat_kpl : 0;
+        const kokonais = julkisivu + timpuri + sokkeli + terassi + kaiteet + aidat + ikkunat;
+        const alv0     = Math.round(kokonais / 1.255);
+        const alvVal   = kokonais - alv0;
         return {
-          julkisivu_hinta_alv0: Math.round(julkisivu),
-          timpuri_hinta_alv0: Math.round(timpuri),
-          sokkeli_hinta_alv0: Math.round(sokkeli),
-          terassi_hinta_alv0: Math.round(terassi),
-          kaiteet_hinta_alv0: Math.round(kaiteet),
-          aidat_hinta_alv0: Math.round(aidat),
-          ikkunapokat_hinta_alv0: Math.round(ikkunapokat),
-          valisisumma: Math.round(vali),
-          alv: Math.round(alvVal),
-          kokonaishinta: Math.round(vali + alvVal),
+          julkisivu_hinta_alv0:   Math.round(julkisivu),
+          timpuri_hinta_alv0:     Math.round(timpuri),
+          sokkeli_hinta_alv0:     Math.round(sokkeli),
+          terassi_hinta_alv0:     Math.round(terassi),
+          kaiteet_hinta_alv0:     Math.round(kaiteet),
+          aidat_hinta_alv0:       Math.round(aidat),
+          ikkunapokat_hinta_alv0: Math.round(ikkunat),
+          valisisumma:            alv0,
+          alv:                    alvVal,
+          kokonaishinta:          kokonais,
         };
       })(),
     },
