@@ -444,23 +444,49 @@ function defaultState() {
   return s;
 }
 
+function getUrlParams() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const nimi = params.get("nimi") || "";
+    const osoite = params.get("osoite") || "";
+
+    if (!nimi && !osoite) return null;
+
+    // Yritä erottaa katuosoite ja kaupunki — CRM tallentaa muodossa "Katu, Kaupunki"
+    const osoiteParts = osoite.split(",").map(s => s.trim());
+    const katu = osoiteParts[0] || "";
+    const kaupunki = osoiteParts[1] || "";
+
+    return { asiakas_nimi: nimi, osoite: katu, kaupunki };
+  } catch {
+    return null;
+  }
+}
+
 function initState() {
   try {
     const saved = localStorage.getItem(LS_KEY);
+    const urlParams = getUrlParams();
+
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.__version !== LS_VERSION) {
         localStorage.removeItem(LS_KEY);
-        return defaultState();
+        const base = defaultState();
+        return urlParams ? { ...base, ...urlParams } : base;
       }
       const clean = { ...defaultState(), ...parsed };
       Object.keys(clean).forEach(k => {
         if (k.endsWith("_uploading")) clean[k] = false;
       });
-      return clean;
+      // URL-parametrit ylikirjoittavat tallennetun staten JOS ne on annettu
+      return urlParams ? { ...clean, ...urlParams } : clean;
     }
   } catch {}
-  return defaultState();
+
+  const base = defaultState();
+  const urlParams = getUrlParams();
+  return urlParams ? { ...base, ...urlParams } : base;
 }
 
 // ─── IMAGE CROP ─────────────────────────────────────────────────────────────
