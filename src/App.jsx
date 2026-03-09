@@ -4,16 +4,16 @@ import { useState, useCallback, useEffect, useRef } from "react";
 const N8N_WEBHOOK_URL = "https://n8n-bud4.onrender.com/webhook/tarjous";
 const TARJOUS_WEBHOOK_URL = "https://n8n-bud4.onrender.com/webhook/tarjous-generaattori";
 const LS_KEY     = "pl_tarjous_v3";
-const LS_VERSION = 3;
+const LS_VERSION = 4;
 
 // ─── HINNOITTELU ────────────────────────────────────────────────────────────
 const HINNOITTELU = {
-  julkisivu_t:    0.21529,
-  umpiräystäs_t:  0.10177,
-  avoräystäs_t:   0.12526,
+  julkisivu_t:    0.32294,
+  umpiräystäs_t:  0.15266,
+  avoräystäs_t:   0.18789,
 
   hintakäyrä: [
-    [1,   2250],
+    [1,   3000],
     [2,   4010],
     [2.5, 4620],
     [3,   5350],
@@ -26,24 +26,45 @@ const HINNOITTELU = {
   ],
 
   kertoimet: {
-    maasto:         { helppo: 1.0, normaali: 1.10, haastava: 1.20 },
+    maasto: {
+      erittain_helppo: 1.00,
+      helppo:          1.05,
+      vahan_haastava:  1.10,
+      haastava:        1.15,
+      erittain_haastava: 1.20,
+    },
     kerrokset:      { "1": 1.0, "1.5": 1.15, "2": 1.20 },
-    lika:           { ei: 0, jonkin_verran: 0.04, paljon: 0.08 },
-    hilseily:       { "ei juuri lainkaan": 0, paikoittain: 0.06, laajasti: 0.14 },
+    lika: {
+      uudiskohde:  0.00,
+      vahan:       0.04,
+      paikoittain: 0.06,
+      paljon:      0.08,
+    },
+    hilseily: {
+      ei_yhtaan:         0.00,
+      vahan:             0.05,
+      kohtalaisesti:     0.10,
+      paikoittain_paljon: 0.15,
+      paljon:            0.20,
+    },
     pintakerrokset: { "1": 1.0, "2": 1.40 },
   },
 
-  minimihinta:         2250,
+  minimihinta:         2000,
   oljymaali_lisa:       200,
   nostin_pv:             60,
 
   sokkeli_m:             25,
-  terassi_m2:            40,
-  kaiteet_m:             50,
   aidat_m:               50,
-  ikkunapokat_kpl:       60,
   timpuri_aloitus:      100,
   timpuri_tuntihinta:    65,
+
+  lisatyot: {
+    kaiteet_m:          { hyva: 40, normaali: 50, huono: 65 },
+    terassi_m2:         { hyva: 40, normaali: 50, huono: 65 },
+    ikkunapokka_pieni:  { hyva: 70, normaali: 80, huono: 100 },
+    ikkunapokka_iso:    { hyva: 110, normaali: 130, huono: 170 },
+  },
 };
 
 // ─── HINNOITTELUFUNKTIOT ────────────────────────────────────────────────────
@@ -157,15 +178,18 @@ const KUNTO_OPTIONS = [
 ];
 
 const VAURIO_OPTIONS = [
-  { value: "ei juuri lainkaan", label: "Ei" },
-  { value: "paikoittain",       label: "Paikoittain" },
-  { value: "laajasti",          label: "Laajasti" },
+  { value: "ei_yhtaan",          label: "Ei yhtään" },
+  { value: "vahan",              label: "Vähän" },
+  { value: "kohtalaisesti",      label: "Kohtalaisesti" },
+  { value: "paikoittain_paljon", label: "Paikoittain paljon" },
+  { value: "paljon",             label: "Paljon" },
 ];
 
 const LIKA_OPTIONS = [
-  { value: "ei",            label: "Ei" },
-  { value: "jonkin_verran", label: "Jonkin verran" },
-  { value: "paljon",        label: "Paljon" },
+  { value: "uudiskohde",  label: "Uudiskohde / ei pesua" },
+  { value: "vahan",        label: "Vähän likaa" },
+  { value: "paikoittain",  label: "Paikoittain likaa / hometta" },
+  { value: "paljon",       label: "Paljon likaa / hometta" },
 ];
 
 const KERROS_OPTIONS = [
@@ -179,9 +203,17 @@ const NOSTIN_OPTIONS = [
 ];
 
 const MAASTO_OPTIONS = [
-  { value: "helppo", label: "Helppo" },
+  { value: "erittain_helppo",    label: "Erittäin helppo / tasainen" },
+  { value: "helppo",             label: "Helppo" },
+  { value: "vahan_haastava",     label: "Vähän haastava" },
+  { value: "haastava",           label: "Haastava" },
+  { value: "erittain_haastava",  label: "Erittäin haastava" },
+];
+
+const LISATYO_KUNTO_OPTIONS = [
+  { value: "hyva",     label: "Hyvä kunto" },
   { value: "normaali", label: "Normaali" },
-  { value: "haastava", label: "Haastava" },
+  { value: "huono",    label: "Huono kunto" },
 ];
 
 const RAKENNUS_NIMI_OPTIONS = [
@@ -324,7 +356,7 @@ const POHJAMATERIAALI_MAP = {
   akrylaatti: "Akrylaatti", oljymaali: "Öljymaali", kuullote: "Kuullote", vapaa: "Vapaa teksti",
 };
 const KUNTO_MAP = { A: "Normaali", B: "Tyydyttävä", C: "Heikko" };
-const MAASTO_MAP = { helppo: "Helppo", normaali: "Normaali", haastava: "Haastava" };
+const MAASTO_MAP = { erittain_helppo: "Erittäin helppo", helppo: "Helppo", vahan_haastava: "Vähän haastava", haastava: "Haastava", erittain_haastava: "Erittäin haastava" };
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function today() { return new Date().toISOString().split("T")[0]; }
@@ -349,7 +381,7 @@ function buildingDefaults(prefix, extra = {}) {
     [`${prefix}pohjamateriaali_tarkennus`]: "",
     [`${prefix}pohjamateriaali_tarkennus_muu`]: "",
     [`${prefix}kunto`]: "B",
-    [`${prefix}hilseily`]: "paikoittain",
+    [`${prefix}hilseily`]: "vahan",
     [`${prefix}kerrokset`]: "1",
     [`${prefix}timpuri`]: false,
     [`${prefix}timpuri_check`]: [],
@@ -359,7 +391,7 @@ function buildingDefaults(prefix, extra = {}) {
     [`${prefix}pintaala`]: "",
     [`${prefix}raystasmetrit`]: "",
     [`${prefix}avoraystäs`]: "",
-    [`${prefix}lika`]:       "jonkin_verran",
+    [`${prefix}lika`]:       "vahan",
     [`${prefix}pesuaine`]: "homepesu",
     [`${prefix}maali_tyyppi`]: "vesiohenteinen",
     [`${prefix}pohjamaali_idx`]: 0,
@@ -420,8 +452,13 @@ function defaultState() {
     timpuri_rak_kasittely_h: "",
     timpuri_kuvat: [],
     kaiteet_metrit: "",
+    kaiteet_kunto: "normaali",
+    terassi_kunto: "normaali",
     aidat_metrit: "",
-    ikkunapokat_kpl: "",
+    ikkunapokat_pieni_kpl: "",
+    ikkunapokat_pieni_kunto: "normaali",
+    ikkunapokat_iso_kpl: "",
+    ikkunapokat_iso_kunto: "normaali",
   };
   // Timpuri photos (4 slots)
   for (let i = 0; i < 4; i++) {
@@ -1244,10 +1281,16 @@ function Page7({ state, update, onImageUpload }) {
   const show_terassi = checks.includes("Terassi");
 
   const sokkeli_hinta = show_sokkeli ? Math.round((parseFloat(state.sokkeli_metrit) || 0) * HINNOITTELU.sokkeli_m) : 0;
-  const terassi_hinta = show_terassi ? Math.round((parseFloat(state.terassi_m2_laskuri) || 0) * HINNOITTELU.terassi_m2) : 0;
-  const kaiteet_hinta = show_kaiteet ? Math.round((parseFloat(state.kaiteet_metrit) || 0) * HINNOITTELU.kaiteet_m) : 0;
+  const terassi_yks = HINNOITTELU.lisatyot.terassi_m2[state.terassi_kunto || "normaali"] || 50;
+  const terassi_hinta = show_terassi ? Math.round((parseFloat(state.terassi_m2_laskuri) || 0) * terassi_yks) : 0;
+  const kaiteet_yks = HINNOITTELU.lisatyot.kaiteet_m[state.kaiteet_kunto || "normaali"] || 50;
+  const kaiteet_hinta = show_kaiteet ? Math.round((parseFloat(state.kaiteet_metrit) || 0) * kaiteet_yks) : 0;
   const aidat_hinta = show_aidat ? Math.round((parseFloat(state.aidat_metrit) || 0) * HINNOITTELU.aidat_m) : 0;
-  const ikkunapokat_hinta = show_ikkunapokat ? Math.round((parseFloat(state.ikkunapokat_kpl) || 0) * HINNOITTELU.ikkunapokat_kpl) : 0;
+  const ikkunapokat_pieni_yks = HINNOITTELU.lisatyot.ikkunapokka_pieni[state.ikkunapokat_pieni_kunto || "normaali"] || 80;
+  const ikkunapokat_pieni_hinta = show_ikkunapokat ? Math.round((parseFloat(state.ikkunapokat_pieni_kpl) || 0) * ikkunapokat_pieni_yks) : 0;
+  const ikkunapokat_iso_yks = HINNOITTELU.lisatyot.ikkunapokka_iso[state.ikkunapokat_iso_kunto || "normaali"] || 130;
+  const ikkunapokat_iso_hinta = show_ikkunapokat ? Math.round((parseFloat(state.ikkunapokat_iso_kpl) || 0) * ikkunapokat_iso_yks) : 0;
+  const ikkunapokat_hinta = ikkunapokat_pieni_hinta + ikkunapokat_iso_hinta;
 
   const kokonais = julkisivu_yht + (state.rak1_timpuri ? timpuri_hinta : 0) + sokkeli_hinta + terassi_hinta + kaiteet_hinta + aidat_hinta + ikkunapokat_hinta;
   const valisisumma = Math.round(kokonais / 1.255);
@@ -1399,7 +1442,8 @@ function Page7({ state, update, onImageUpload }) {
           </button>
           {openSections.kaiteet && <>
             <Input label="Kaiteiden metrit (jm)" type="number" value={state.kaiteet_metrit} onChange={e => update("kaiteet_metrit", e.target.value)} placeholder="0" />
-            {kaiteet_hinta > 0 && <div className="calc-subtotal">{fmt(parseFloat(state.kaiteet_metrit))} m × {HINNOITTELU.kaiteet_m}€ = {fmt(kaiteet_hinta)}€</div>}
+            <Select label="Kunto" value={state.kaiteet_kunto} onChange={e => update("kaiteet_kunto", e.target.value)} options={LISATYO_KUNTO_OPTIONS} />
+            {kaiteet_hinta > 0 && <div className="calc-subtotal">{fmt(parseFloat(state.kaiteet_metrit))} m × {kaiteet_yks}€ = {fmt(kaiteet_hinta)}€</div>}
           </>}
         </div>
       )}
@@ -1426,8 +1470,19 @@ function Page7({ state, update, onImageUpload }) {
             <span className={`calc-toggle-arrow ${openSections.ikkunapokat ? "open" : ""}`}>▾</span>
           </button>
           {openSections.ikkunapokat && <>
-            <Input label="Ikkunoiden määrä (kpl)" type="number" value={state.ikkunapokat_kpl} onChange={e => update("ikkunapokat_kpl", e.target.value)} placeholder="0" />
-            {ikkunapokat_hinta > 0 && <div className="calc-subtotal">{fmt(parseFloat(state.ikkunapokat_kpl))} kpl × {HINNOITTELU.ikkunapokat_kpl}€ = {fmt(ikkunapokat_hinta)}€</div>}
+            <h4 className="subsection-title">Pienet ikkunapokat</h4>
+            <div className="grid-2">
+              <Input label="Määrä (kpl)" type="number" value={state.ikkunapokat_pieni_kpl} onChange={e => update("ikkunapokat_pieni_kpl", e.target.value)} placeholder="0" />
+              <Select label="Kunto" value={state.ikkunapokat_pieni_kunto} onChange={e => update("ikkunapokat_pieni_kunto", e.target.value)} options={LISATYO_KUNTO_OPTIONS} />
+            </div>
+            {ikkunapokat_pieni_hinta > 0 && <div className="calc-subtotal">{fmt(parseFloat(state.ikkunapokat_pieni_kpl))} kpl × {ikkunapokat_pieni_yks}€ = {fmt(ikkunapokat_pieni_hinta)}€</div>}
+            <h4 className="subsection-title">Isot ikkunapokat</h4>
+            <div className="grid-2">
+              <Input label="Määrä (kpl)" type="number" value={state.ikkunapokat_iso_kpl} onChange={e => update("ikkunapokat_iso_kpl", e.target.value)} placeholder="0" />
+              <Select label="Kunto" value={state.ikkunapokat_iso_kunto} onChange={e => update("ikkunapokat_iso_kunto", e.target.value)} options={LISATYO_KUNTO_OPTIONS} />
+            </div>
+            {ikkunapokat_iso_hinta > 0 && <div className="calc-subtotal">{fmt(parseFloat(state.ikkunapokat_iso_kpl))} kpl × {ikkunapokat_iso_yks}€ = {fmt(ikkunapokat_iso_hinta)}€</div>}
+            {ikkunapokat_hinta > 0 && <div className="calc-subtotal" style={{ fontWeight: 700 }}>Ikkunapokat yht. {fmt(ikkunapokat_hinta)}€</div>}
           </>}
         </div>
       )}
@@ -1455,7 +1510,8 @@ function Page7({ state, update, onImageUpload }) {
           </button>
           {openSections.terassi && <>
             <Input label="Terassin pinta-ala (m²)" type="number" value={state.terassi_m2_laskuri} onChange={e => update("terassi_m2_laskuri", e.target.value)} placeholder="0" />
-            {terassi_hinta > 0 && <div className="calc-subtotal">{fmt(parseFloat(state.terassi_m2_laskuri))} m² × {HINNOITTELU.terassi_m2}€ = {fmt(terassi_hinta)}€</div>}
+            <Select label="Kunto" value={state.terassi_kunto} onChange={e => update("terassi_kunto", e.target.value)} options={LISATYO_KUNTO_OPTIONS} />
+            {terassi_hinta > 0 && <div className="calc-subtotal">{fmt(parseFloat(state.terassi_m2_laskuri))} m² × {terassi_yks}€ = {fmt(terassi_hinta)}€</div>}
           </>}
         </div>
       )}
@@ -1909,8 +1965,13 @@ function buildPayload(s) {
       sokkeli_metrit: s.sokkeli_metrit || "",
       terassi_m2_laskuri: s.terassi_m2_laskuri || "",
       kaiteet_metrit: s.kaiteet_metrit || "",
+      kaiteet_kunto: s.kaiteet_kunto || "normaali",
+      terassi_kunto: s.terassi_kunto || "normaali",
       aidat_metrit: s.aidat_metrit || "",
-      ikkunapokat_kpl: s.ikkunapokat_kpl || "",
+      ikkunapokat_pieni_kpl: s.ikkunapokat_pieni_kpl || "",
+      ikkunapokat_pieni_kunto: s.ikkunapokat_pieni_kunto || "normaali",
+      ikkunapokat_iso_kpl: s.ikkunapokat_iso_kpl || "",
+      ikkunapokat_iso_kunto: s.ikkunapokat_iso_kunto || "normaali",
       timpuri_kuvaus: s.timpuri_kuvaus || "",
       timpuri_sijainti: s.timpuri_sijainti || "",
       timpuri_laudat_kpl: s.timpuri_laudat_kpl || "",
@@ -1948,14 +2009,19 @@ function buildPayload(s) {
                         ? tYht * HINNOITTELU.timpuri_tuntihinta + HINNOITTELU.timpuri_aloitus : 0;
         const sokkeli = checks.includes("Sokkeli")
                         ? (parseFloat(s.sokkeli_metrit)     || 0) * HINNOITTELU.sokkeli_m    : 0;
+        const terassi_yks = HINNOITTELU.lisatyot.terassi_m2[s.terassi_kunto || "normaali"] || 50;
         const terassi = checks.includes("Terassi")
-                        ? (parseFloat(s.terassi_m2_laskuri) || 0) * HINNOITTELU.terassi_m2  : 0;
+                        ? (parseFloat(s.terassi_m2_laskuri) || 0) * terassi_yks  : 0;
+        const kaiteet_yks = HINNOITTELU.lisatyot.kaiteet_m[s.kaiteet_kunto || "normaali"] || 50;
         const kaiteet = checks.includes("Kaiteet")
-                        ? (parseFloat(s.kaiteet_metrit)     || 0) * HINNOITTELU.kaiteet_m    : 0;
+                        ? (parseFloat(s.kaiteet_metrit)     || 0) * kaiteet_yks    : 0;
         const aidat   = checks.includes("Aidat")
                         ? (parseFloat(s.aidat_metrit)       || 0) * HINNOITTELU.aidat_m      : 0;
+        const ikk_pieni_yks = HINNOITTELU.lisatyot.ikkunapokka_pieni[s.ikkunapokat_pieni_kunto || "normaali"] || 80;
+        const ikk_iso_yks = HINNOITTELU.lisatyot.ikkunapokka_iso[s.ikkunapokat_iso_kunto || "normaali"] || 130;
         const ikkunat = checks.includes("Ikkunanpokat")
-                        ? (parseFloat(s.ikkunapokat_kpl)    || 0) * HINNOITTELU.ikkunapokat_kpl : 0;
+                        ? (parseFloat(s.ikkunapokat_pieni_kpl) || 0) * ikk_pieni_yks
+                        + (parseFloat(s.ikkunapokat_iso_kpl) || 0) * ikk_iso_yks : 0;
         const kokonais = julkisivu + timpuri + sokkeli + terassi + kaiteet + aidat + ikkunat;
         const alv0     = Math.round(kokonais / 1.255);
         const alvVal   = kokonais - alv0;
