@@ -1719,7 +1719,7 @@ export default function App() {
     loadTarjoukset().then(setDashboardList).catch(() => {}).finally(() => setDashboardLoading(false));
   }, []);
 
-  // Lataa Supabasesta jos supabase_id löytyy localStoragesta
+  // Lataa viimeisin tarjous Supabasesta jos supabase_id löytyy localStoragesta
   useEffect(() => {
     const saved = localStorage.getItem(LS_KEY);
     if (!saved) return;
@@ -1802,16 +1802,9 @@ export default function App() {
       }
       const croppedFile = await cropImageToRatio(file, aspectRatio);
       const { url } = await uploadToCloudinary(croppedFile);
-      // Tallenna URL suoraan localStorageen heti
-      try {
-        const saved = localStorage.getItem(LS_KEY);
-        const current = saved ? JSON.parse(saved) : { __version: LS_VERSION };
-        current[`${fieldPrefix}_url`] = url;
-        localStorage.setItem(LS_KEY, JSON.stringify(current));
-      } catch {}
       setState(prev => {
         const next = { ...prev, [`${fieldPrefix}_url`]: url, [`${fieldPrefix}_uploading`]: false };
-        // Tallenna Supabaseen heti
+        // Tallenna Supabaseen HETI ilman debouncea
         if (next.supabase_id) {
           const toSave = {};
           Object.keys(next).forEach(k => {
@@ -1902,7 +1895,10 @@ export default function App() {
   const handleDashboardOpen = async (id) => {
     const formData = await sbLoadTarjous(id);
     const merged = { ...defaultState(), ...(formData || {}), supabase_id: id };
-    Object.keys(merged).forEach(k => { if (k.endsWith("_uploading")) merged[k] = false; });
+    Object.keys(merged).forEach(k => {
+      if (k.endsWith("_url") && merged[k]) merged[k.replace("_url", "_preview")] = merged[k];
+      if (k.endsWith("_uploading")) merged[k] = false;
+    });
     setState(merged);
     setStep(1);
     setStatus("idle");
