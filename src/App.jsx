@@ -568,6 +568,13 @@ function initState() {
       Object.keys(clean).forEach(k => {
         if (k.endsWith("_uploading")) clean[k] = false;
       });
+      // Palauta previewt URL:ista jos preview puuttuu
+      const allKeys = Object.keys(clean);
+      allKeys.forEach(k => {
+        if (k.endsWith("_url") && clean[k] && !clean[k.replace("_url", "_preview")]) {
+          clean[k.replace("_url", "_preview")] = clean[k];
+        }
+      });
       // URL-parametrit ylikirjoittavat tallennetun staten JOS ne on annettu
       return urlParams ? { ...clean, ...urlParams } : clean;
     }
