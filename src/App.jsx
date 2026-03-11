@@ -8,7 +8,7 @@ const LS_VERSION = 4;
 
 // ─── SUPABASE ────────────────────────────────────────────────────────────────
 const SUPABASE_URL  = "https://yesqjmjxzshbpgqyizlg.supabase.co";
-const SUPABASE_ANON = "sb_publishable_KuBdIIaLzGsQoAqj5nA9vQ_wilJrsQI";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inllc3FqbWp4enNoYnBncXlpemxnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMTY3MDIsImV4cCI6MjA4ODc5MjcwMn0.G2j5vEzrELp6nlqCU9LTkU5qm2me2WQagRb830fU92E";
 const SB_HEADERS = {
   "Content-Type": "application/json",
   "apikey": SUPABASE_ANON,
