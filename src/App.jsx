@@ -1700,6 +1700,19 @@ export default function App() {
   const [dashboardList, setDashboardList] = useState([]);
   const [dashboardLoading, setDashboardLoading] = useState(false);
 
+  const isAnyUploading = Object.keys(state).some(k => k.endsWith("_uploading") && state[k]);
+
+  // Esto sivun sulkemiselle uploadien aikana
+  useEffect(() => {
+    if (!isAnyUploading) return;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isAnyUploading]);
+
   // Lataa dashboard-lista mountissa
   useEffect(() => {
     setDashboardLoading(true);
@@ -1883,6 +1896,17 @@ export default function App() {
 
   return (
     <div className="app">
+
+      {isAnyUploading && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0,
+          background: "#f59e0b", color: "white",
+          textAlign: "center", padding: "8px",
+          zIndex: 9999, fontSize: "14px"
+        }}>
+          {"\u23F3"} {Object.keys(state).filter(k => k.endsWith("_uploading") && state[k]).length} kuva(a) latautuu — älä sulje sivua
+        </div>
+      )}
 
       {/* Mobiili overlay — tummentaa taustan kun drawer auki */}
       {isMobileOpen && (
