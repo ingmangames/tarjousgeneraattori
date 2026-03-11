@@ -565,15 +565,14 @@ function initState() {
         return urlParams ? { ...base, ...urlParams } : base;
       }
       const clean = { ...defaultState(), ...parsed };
+      // Palauta previewt URL:ista
       Object.keys(clean).forEach(k => {
-        if (k.endsWith("_uploading")) clean[k] = false;
-      });
-      // Palauta previewt URL:ista jos preview puuttuu
-      const allKeys = Object.keys(clean);
-      allKeys.forEach(k => {
-        if (k.endsWith("_url") && clean[k] && !clean[k.replace("_url", "_preview")]) {
+        if (k.endsWith("_url") && clean[k]) {
           clean[k.replace("_url", "_preview")] = clean[k];
         }
+      });
+      Object.keys(clean).forEach(k => {
+        if (k.endsWith("_uploading")) clean[k] = false;
       });
       // URL-parametrit ylikirjoittavat tallennetun staten JOS ne on annettu
       return urlParams ? { ...clean, ...urlParams } : clean;
@@ -1710,7 +1709,15 @@ export default function App() {
   // localStorage + Supabase automaattitallennus
   const saveTimerRef = useRef(null);
   useEffect(() => {
-    try { localStorage.setItem(LS_KEY, JSON.stringify({ ...state, __version: LS_VERSION })); } catch {}
+    try {
+      const toSave = {};
+      Object.keys(state).forEach(k => {
+        if (!k.endsWith("_preview") && !k.endsWith("_uploading")) {
+          toSave[k] = state[k];
+        }
+      });
+      localStorage.setItem(LS_KEY, JSON.stringify({ ...toSave, __version: LS_VERSION }));
+    } catch {}
     // Supabase auto-save (debounced)
     if (state.supabase_id) {
       clearTimeout(saveTimerRef.current);
