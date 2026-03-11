@@ -1719,6 +1719,26 @@ export default function App() {
     loadTarjoukset().then(setDashboardList).catch(() => {}).finally(() => setDashboardLoading(false));
   }, []);
 
+  // Lataa Supabasesta jos supabase_id löytyy localStoragesta
+  useEffect(() => {
+    const saved = localStorage.getItem(LS_KEY);
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved);
+      const id = parsed.supabase_id;
+      if (!id) return;
+      sbLoadTarjous(id).then(formData => {
+        if (!formData) return;
+        const merged = { ...defaultState(), ...formData, supabase_id: id };
+        Object.keys(merged).forEach(k => {
+          if (k.endsWith("_url") && merged[k]) merged[k.replace("_url", "_preview")] = merged[k];
+          if (k.endsWith("_uploading")) merged[k] = false;
+        });
+        setState(merged);
+      }).catch(() => {});
+    } catch {}
+  }, []); // vain mountissa kerran
+
   // localStorage + Supabase automaattitallennus
   const saveTimerRef = useRef(null);
   useEffect(() => {
@@ -1789,7 +1809,18 @@ export default function App() {
         current[`${fieldPrefix}_url`] = url;
         localStorage.setItem(LS_KEY, JSON.stringify(current));
       } catch {}
-      setState(prev => ({ ...prev, [`${fieldPrefix}_url`]: url, [`${fieldPrefix}_uploading`]: false }));
+      setState(prev => {
+        const next = { ...prev, [`${fieldPrefix}_url`]: url, [`${fieldPrefix}_uploading`]: false };
+        // Tallenna Supabaseen heti
+        if (next.supabase_id) {
+          const toSave = {};
+          Object.keys(next).forEach(k => {
+            if (!k.endsWith("_preview") && !k.endsWith("_uploading")) toSave[k] = next[k];
+          });
+          sbSaveTarjous(next.supabase_id, toSave).catch(() => {});
+        }
+        return next;
+      });
     } catch (err) {
       setState(prev => ({ ...prev, [`${fieldPrefix}_uploading`]: false, [`${fieldPrefix}_preview`]: "", [`${fieldPrefix}_url`]: "" }));
       alert(`Kuvan lataus epäonnistui: ${err.message}`);
