@@ -1782,6 +1782,13 @@ export default function App() {
       }
       const croppedFile = await cropImageToRatio(file, aspectRatio);
       const { url } = await uploadToCloudinary(croppedFile);
+      // Tallenna URL suoraan localStorageen heti
+      try {
+        const saved = localStorage.getItem(LS_KEY);
+        const current = saved ? JSON.parse(saved) : { __version: LS_VERSION };
+        current[`${fieldPrefix}_url`] = url;
+        localStorage.setItem(LS_KEY, JSON.stringify(current));
+      } catch {}
       setState(prev => ({ ...prev, [`${fieldPrefix}_url`]: url, [`${fieldPrefix}_uploading`]: false }));
     } catch (err) {
       setState(prev => ({ ...prev, [`${fieldPrefix}_uploading`]: false, [`${fieldPrefix}_preview`]: "", [`${fieldPrefix}_url`]: "" }));
