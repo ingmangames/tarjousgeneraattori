@@ -6,6 +6,57 @@ const TARJOUS_WEBHOOK_URL = "https://n8n-bud4.onrender.com/webhook/tarjous-gener
 const LS_KEY     = "pl_tarjous_v3";
 const LS_VERSION = 4;
 
+// ─── SUPABASE ────────────────────────────────────────────────────────────────
+const SUPABASE_URL  = "https://yesqjmjxzshbpgqyizlg.supabase.co";
+const SUPABASE_ANON = "sb_publishable_KuBdIIaLzGsQoAqj5nA9vQ_wilJrsQI";
+const SB_HEADERS = {
+  "Content-Type": "application/json",
+  "apikey": SUPABASE_ANON,
+  "Authorization": `Bearer ${SUPABASE_ANON}`,
+  "Prefer": "return=representation"
+};
+
+async function sbFetch(path, opts = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: SB_HEADERS, ...opts });
+  if (!res.ok) { const t = await res.text(); throw new Error(`Supabase ${res.status}: ${t.slice(0,200)}`); }
+  const text = await res.text();
+  return text ? JSON.parse(text) : [];
+}
+async function loadTarjoukset() {
+  return sbFetch("tarjoukset?select=id,asiakas_nimi,osoite,tarjous_nro,updated_at&order=updated_at.desc");
+}
+async function sbCreateTarjous(formData) {
+  const rows = await sbFetch("tarjoukset", {
+    method: "POST",
+    body: JSON.stringify({
+      form_data: formData,
+      asiakas_nimi: formData.asiakas_nimi || "",
+      osoite: formData.osoite || "",
+      tarjous_nro: formData.tarjous_nro || "",
+    }),
+  });
+  return rows[0]?.id;
+}
+async function sbSaveTarjous(id, formData) {
+  await sbFetch(`tarjoukset?id=eq.${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      form_data: formData,
+      asiakas_nimi: formData.asiakas_nimi || "",
+      osoite: formData.osoite || "",
+      tarjous_nro: formData.tarjous_nro || "",
+      updated_at: new Date().toISOString(),
+    }),
+  });
+}
+async function sbLoadTarjous(id) {
+  const rows = await sbFetch(`tarjoukset?id=eq.${id}&select=form_data`);
+  return rows[0]?.form_data || null;
+}
+async function sbDeleteTarjous(id) {
+  await sbFetch(`tarjoukset?id=eq.${id}`, { method: "DELETE" });
+}
+
 // ─── HINNOITTELU ────────────────────────────────────────────────────────────
 const HINNOITTELU = {
   julkisivu_t:    0.32294,
@@ -405,8 +456,9 @@ function buildingDefaults(prefix, extra = {}) {
 
 function defaultState() {
   const s = {
+    supabase_id: null,
     // Page 1
-    asiakas_nimi: "", tarjous_nro: "", osoite: "", postinumero: "", kaupunki: "",
+    asiakas_nimi: "", asiakas_puh: "", asiakas_email: "", tarjous_nro: "", osoite: "", postinumero: "", kaupunki: "",
     paivamaara: today(), arvioitu_kesto: "", tarjottava_tyo: "Julkisivun maalaus",
     // Page 2
     rakennuksia: 1,
@@ -869,6 +921,10 @@ function Page1({ state, update }) {
       <h2 className="page-title">Asiakastiedot</h2>
       <div className="card">
         <Input label="Asiakkaan nimi" required value={state.asiakas_nimi} onChange={e => update("asiakas_nimi", e.target.value)} placeholder="Etunimi Sukunimi" />
+        <div className="grid-2">
+          <Input label="Puhelinnumero" value={state.asiakas_puh} onChange={e => update("asiakas_puh", e.target.value)} placeholder="+358 40 123 4567" />
+          <Input label="Sähköposti" type="email" value={state.asiakas_email} onChange={e => update("asiakas_email", e.target.value)} placeholder="etunimi@email.fi" />
+        </div>
         <Input label="Tarjous nro" required value={state.tarjous_nro} onChange={e => update("tarjous_nro", e.target.value)} placeholder="2025-001" />
         <Input label="Osoite" required value={state.osoite} onChange={e => update("osoite", e.target.value)} placeholder="Katuosoite" />
         <div className="grid-2">
@@ -1587,6 +1643,46 @@ function Page8({ state, update, onGenerateTarjous }) {
 }
 
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
+// ─── DASHBOARD ──────────────────────────────────────────────────────────────
+function Dashboard({ onNew, onOpen, onDelete, list, loading }) {
+  return (
+    <div className="dashboard">
+      <div className="dashboard-header">
+        <div className="brand">
+          <div className="brand-mark">PL</div>
+          <div>
+            <div className="brand-name">Pohjoisen</div>
+            <div className="brand-name">Laatumaalaus</div>
+          </div>
+        </div>
+        <button className="btn-primary" onClick={onNew}>+ Uusi tarjous</button>
+      </div>
+      <h2 className="page-title" style={{padding:"0 24px"}}>Tarjoukset</h2>
+      {loading ? (
+        <div style={{padding:32,textAlign:"center",color:"#888"}}>Ladataan...</div>
+      ) : list.length === 0 ? (
+        <div style={{padding:32,textAlign:"center",color:"#888"}}>Ei vielä tarjouksia. Luo ensimmäinen!</div>
+      ) : (
+        <div className="dashboard-list">
+          {list.map(t => (
+            <div key={t.id} className="dashboard-card" onClick={() => onOpen(t.id)}>
+              <div className="dash-card-main">
+                <div className="dash-card-name">{t.asiakas_nimi || "\u2014"}</div>
+                <div className="dash-card-osoite">{t.osoite || ""}</div>
+              </div>
+              <div className="dash-card-meta">
+                <span className="dash-card-nro">{t.tarjous_nro || "ei nroa"}</span>
+                <span className="dash-card-pvm">{t.updated_at ? new Date(t.updated_at).toLocaleDateString("fi-FI") : ""}</span>
+              </div>
+              <button className="dash-card-delete" onClick={e => { e.stopPropagation(); onDelete(t.id); }}>{"\uD83D\uDDD1"}</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [step, setStep] = useState(1);
   const [state, setState] = useState(initState);
@@ -1594,10 +1690,32 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState("");
   const [downloadUrl, setDownloadUrl] = useState("");
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [view, setView] = useState("dashboard");
+  const [dashboardList, setDashboardList] = useState([]);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
 
-  // localStorage automaattitallennus
+  // Lataa dashboard-lista mountissa
+  useEffect(() => {
+    setDashboardLoading(true);
+    loadTarjoukset().then(setDashboardList).catch(() => {}).finally(() => setDashboardLoading(false));
+  }, []);
+
+  // localStorage + Supabase automaattitallennus
+  const saveTimerRef = useRef(null);
   useEffect(() => {
     try { localStorage.setItem(LS_KEY, JSON.stringify({ ...state, __version: LS_VERSION })); } catch {}
+    // Supabase auto-save (debounced)
+    if (state.supabase_id) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        const clean = {};
+        for (const [k, v] of Object.entries(state)) {
+          if (!k.endsWith("_preview") && !k.endsWith("_uploading")) clean[k] = v;
+        }
+        sbSaveTarjous(state.supabase_id, clean).catch(() => {});
+      }, 2000);
+    }
+    return () => clearTimeout(saveTimerRef.current);
   }, [state]);
 
   const update = useCallback((key, value) => {
@@ -1706,6 +1824,49 @@ export default function App() {
     <Page8 state={state} update={update} onGenerateTarjous={handleGenerateTarjous} />,
   ];
 
+  // Dashboard handlers
+  const handleDashboardNew = async () => {
+    const fresh = defaultState();
+    const id = await sbCreateTarjous(fresh);
+    setState({ ...fresh, supabase_id: id });
+    setStep(1);
+    setStatus("idle");
+    setDownloadUrl("");
+    setView("form");
+  };
+  const handleDashboardOpen = async (id) => {
+    const formData = await sbLoadTarjous(id);
+    const merged = { ...defaultState(), ...(formData || {}), supabase_id: id };
+    Object.keys(merged).forEach(k => { if (k.endsWith("_uploading")) merged[k] = false; });
+    setState(merged);
+    setStep(1);
+    setStatus("idle");
+    setDownloadUrl("");
+    setView("form");
+  };
+  const handleDashboardDelete = async (id) => {
+    if (!window.confirm("Poistetaanko tarjous pysyvästi?")) return;
+    await sbDeleteTarjous(id);
+    setDashboardList(prev => prev.filter(t => t.id !== id));
+  };
+  const handleBackToDashboard = () => {
+    setDashboardLoading(true);
+    loadTarjoukset().then(setDashboardList).catch(() => {}).finally(() => setDashboardLoading(false));
+    setView("dashboard");
+  };
+
+  if (view === "dashboard") {
+    return (
+      <Dashboard
+        onNew={handleDashboardNew}
+        onOpen={handleDashboardOpen}
+        onDelete={handleDashboardDelete}
+        list={dashboardList}
+        loading={dashboardLoading}
+      />
+    );
+  }
+
   return (
     <div className="app">
 
@@ -1775,15 +1936,7 @@ export default function App() {
               )}
               <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 24, flexWrap: "wrap" }}>
                 <button className="btn-primary" onClick={() => { setStatus("idle"); setStep(6); }}>Jatka muokkaamista</button>
-                <button className="btn-secondary" onClick={() => {
-                  if (window.confirm("Tyhjennä lomake ja aloita uusi tarjous?")) {
-                    setState(defaultState());
-                    localStorage.removeItem(LS_KEY);
-                    setStep(1);
-                    setStatus("idle");
-                    setDownloadUrl("");
-                  }
-                }}>+ Uusi tarjous</button>
+                <button className="btn-secondary" onClick={handleBackToDashboard}>{"\u2190"} Takaisin tarjouksiin</button>
               </div>
             </div>
           ) : (
@@ -1923,6 +2076,8 @@ function buildPayload(s) {
 
     form: {
       asiakas_nimi: s.asiakas_nimi,
+      asiakas_puh: s.asiakas_puh || "",
+      asiakas_email: s.asiakas_email || "",
       tarjottava_tyo: s.tarjottava_tyo,
       arvioitu_kesto: s.arvioitu_kesto,
       rakennuksia: s.rakennuksia,
@@ -2153,6 +2308,45 @@ function buildPayload(s) {
       rak1_kerrokset: s.rak1_kerrokset,
       rak2_kerrokset: s.rak2_kerrokset,
       rak3_kerrokset: s.rak3_kerrokset,
+      // Slide 4 — Timpurin työt
+      timpuri_teksti: (() => {
+        if (!s.rak1_timpuri && !s.rak2_timpuri && !s.rak3_timpuri) return "Kohteessa ei ole arvioitu tarvittavan timpuritöitä.";
+        const osat = [];
+        if ((s.rak1_timpuri_check||[]).includes("Lahot laudat")) osat.push(`lahoja lautoja n. ${s.timpuri_laudat_kpl||"?"} kpl`);
+        if ((s.rak1_timpuri_check||[]).includes("Halkeamat")) osat.push(`halkeamia n. ${s.timpuri_halkeamat_kpl||"?"} kpl`);
+        if ((s.rak1_timpuri_check||[]).includes("Rakenteelliset korjaukset")) osat.push("rakenteellisia korjauksia");
+        if (s.timpuri_kuvaus) osat.push(s.timpuri_kuvaus);
+        return osat.length > 0
+          ? `Kohteessa on havaittu seuraavat timpurityöt: ${osat.join(", ")}. Timpurityöt toteutetaan ennen maalaustyön aloittamista.`
+          : "Kohteessa on havaittu timpuritöitä. Laajuus tarkistetaan työmaan alussa.";
+      })(),
+      // Slide 4 — Telineet
+      telineet_otsikko: (() => {
+        const nostimet = [s.rak1_nostin, s.rak2_nostin, s.rak3_nostin].filter(n => n === "kylla");
+        return nostimet.length > 0 ? "Telineet ja nostin" : "Telineet ja tikkaat";
+      })(),
+      telineet_teksti: (() => {
+        const nostimet = [s.rak1_nostin, s.rak2_nostin, s.rak3_nostin].filter(n => n === "kylla");
+        if (nostimet.length > 0) return "Kohteessa käytetään henkilönostinta korkeiden pintojen maalauksen mahdollistamiseksi. Nostin sijoitetaan siten, ettei se haittaa liikennettä tai kulkua.";
+        return "Työ toteutetaan tikkaita ja tarvittavia telineitä käyttäen. Telineet pystytetään turvallisesti ja varmistetaan ennen töiden aloittamista.";
+      })(),
+      // Slide 6 — Kaavinta
+      kaavinta_laajuus_teksti: (() => {
+        const hilseily = s.rak1_hilseily || "vahan";
+        const map = {
+          ei_yhtaan: "Kohteessa ei ole havaittu merkittävää hilseilyä. Pinnat käydään silti läpi ja irtoava maali poistetaan.",
+          vahan: "Kohteessa on vähäistä hilseilyä paikoin. Kaavinta tehdään tarkasti kaikilla vaurioituneilla alueilla.",
+          kohtalaisesti: "Kohteessa on kohtalainen määrä hilseilyä. Kaavinta tehdään laajasti ennen maalaustyötä.",
+          paikoittain_paljon: "Kohteessa on paikoin runsaasti hilseilyä. Kaavintatyö on merkittävä osa urakkaa.",
+          paljon: "Kohteessa on runsaasti hilseilyä laajalti. Kaavintatyö on erittäin laaja ennen maalauksen aloittamista.",
+        };
+        return map[hilseily] || map.vahan;
+      })(),
+      // Slide 8 — Pintamaalauksen toinen kerros
+      pintamaalaus_kerros_teksti: (() => {
+        if (s.rak1_kerrokset === "2") return "Kohteessa tehdään kaksi pintamaalikerrosta parhaan lopputuloksen ja kestävyyden varmistamiseksi. Toinen kerros levitetään ensimmäisen kuivuttua täysin.";
+        return "Pintamaalauksen peittävyys tarkistetaan työn edetessä. Mikäli lopputulos sitä edellyttää, käydään mahdollinen toinen käsittely tilaajan kanssa erikseen läpi.";
+      })(),
       // Kuvat
       kansikuva: s.kansikuva_url || "",
       ...Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`rak2_img${i + 1}`, s[`rak2_img${i + 1}_url`] || ""])),

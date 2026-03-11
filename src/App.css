@@ -1292,3 +1292,19 @@ body {
     display: none;
   }
 }
+
+/* ── DASHBOARD ────────────────────────────────────────────── */
+.dashboard { max-width: 700px; margin: 0 auto; padding: 24px 0; }
+.dashboard-header { display: flex; justify-content: space-between; align-items: center; padding: 0 24px 24px; }
+.dashboard-list { display: flex; flex-direction: column; gap: 10px; padding: 0 24px; }
+.dashboard-card { display: flex; align-items: center; gap: 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px 20px; cursor: pointer; transition: box-shadow .15s; }
+.dashboard-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+.dash-card-main { flex: 1; }
+.dash-card-name { font-weight: 600; font-size: 16px; }
+.dash-card-osoite { color: #888; font-size: 13px; margin-top: 2px; }
+.dash-card-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.dash-card-nro { font-size: 12px; background: #f3f4f6; border-radius: 4px; padding: 2px 8px; }
+.dash-card-pvm { font-size: 12px; color: #aaa; }
+.dash-card-delete { background: none; border: none; cursor: pointer; font-size: 18px; opacity: .4; padding: 4px; }
+.dash-card-delete:hover { opacity: 1; }
+.dashboard .brand-name { color: var(--navy); opacity: 1; }
