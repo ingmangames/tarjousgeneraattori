@@ -1308,3 +1308,17 @@ body {
 .dash-card-delete { background: none; border: none; cursor: pointer; font-size: 18px; opacity: .4; padding: 4px; }
 .dash-card-delete:hover { opacity: 1; }
 .dashboard .brand-name { color: var(--navy); opacity: 1; }
+
+/* ── SIDEBAR BACK BUTTON ──────────────────────────────────── */
+.sidebar-back {
+  display: block; background: none; border: none; color: rgba(255,255,255,.6);
+  font-size: 13px; cursor: pointer; padding: 4px 24px 12px; text-align: left;
+  transition: color .15s;
+}
+.sidebar-back:hover { color: #fff; }
+
+/* ── MOBILE BACK BUTTON ───────────────────────────────────── */
+.mobile-back {
+  background: none; border: none; font-size: 20px; color: var(--navy);
+  cursor: pointer; padding: 4px 8px; line-height: 1;
+}

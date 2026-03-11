@@ -1885,6 +1885,7 @@ export default function App() {
           ✕
         </button>
 
+        <button className="sidebar-back" onClick={handleBackToDashboard} type="button">{"\u2190"} Kaikki tarjoukset</button>
         <div className="brand">
           <div className="brand-mark">PL</div>
           <div>
@@ -1912,6 +1913,13 @@ export default function App() {
 
         {/* Mobiili topbar */}
         <div className="mobile-topbar">
+          <button
+            className="mobile-back"
+            onClick={handleBackToDashboard}
+            type="button"
+          >
+            {"\u2190"}
+          </button>
           <button
             className="hamburger"
             onClick={() => setIsMobileOpen(true)}
