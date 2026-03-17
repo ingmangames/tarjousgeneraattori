@@ -1382,6 +1382,8 @@ function Page6({ state, update, onImageUpload }) {
 
 // ─── PAGE VIESTI: SAATEVIESTI ────────────────────────────────────────────────
 function PageViesti({ state, update }) {
+  const [copiedOtsikko, setCopiedOtsikko] = useState(false);
+  const [copiedViesti, setCopiedViesti] = useState(false);
   const etunimi = (state.asiakas_nimi || "").split(" ")[0] || "";
 
   const handleGeneroiViesti = () => {
@@ -1447,8 +1449,13 @@ Soitellaan ${paiva}!`;
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => navigator.clipboard.writeText(state.sahkopostiotsikko)}>
-                  Kopioi
+                  style={copiedOtsikko ? { background: "#16a34a", color: "white", borderColor: "#16a34a" } : {}}
+                  onClick={() => {
+                    navigator.clipboard.writeText(state.sahkopostiotsikko);
+                    setCopiedOtsikko(true);
+                    setTimeout(() => setCopiedOtsikko(false), 2000);
+                  }}>
+                  {copiedOtsikko ? "✓ Kopioitu!" : "Kopioi"}
                 </button>
               </div>
             </div>
@@ -1468,8 +1475,13 @@ Soitellaan ${paiva}!`;
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => navigator.clipboard.writeText(state.sahkopostiviesti)}>
-                  Kopioi
+                  style={copiedViesti ? { background: "#16a34a", color: "white", borderColor: "#16a34a" } : {}}
+                  onClick={() => {
+                    navigator.clipboard.writeText(state.sahkopostiviesti);
+                    setCopiedViesti(true);
+                    setTimeout(() => setCopiedViesti(false), 2000);
+                  }}>
+                  {copiedViesti ? "✓ Kopioitu!" : "Kopioi"}
                 </button>
               </div>
             </div>
