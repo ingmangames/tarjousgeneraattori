@@ -1160,6 +1160,42 @@ function Page4({ state, update, onImageUpload }) {
   return (
     <div>
       <h2 className="page-title">Työvaiheet</h2>
+
+      {/* Massalataus */}
+      <div style={{ marginBottom: 24, padding: 16, background: "#f8f9fa", borderRadius: 8, border: "1px solid #e0e0e0" }}>
+        <div style={{ fontWeight: 600, marginBottom: 8 }}>Lataa kaikki työvaihdekuvat kerralla</div>
+        <div style={{ fontSize: 13, color: "#666", marginBottom: 12 }}>
+          Valitse max 16 kuvaa — ne sijoitetaan automaattisesti järjestyksessä tv1 → tv8
+        </div>
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: "none" }}
+          id="massalataus-input"
+          onChange={async (e) => {
+            const files = Array.from(e.target.files).slice(0, 16);
+            const slots = [
+              "tv1_kuva1","tv1_kuva2","tv2_kuva1","tv2_kuva2",
+              "tv3_kuva1","tv3_kuva2","tv4_kuva1","tv4_kuva2",
+              "tv5_kuva1","tv5_kuva2","tv6_kuva1","tv6_kuva2",
+              "tv7_kuva1","tv7_kuva2","tv8_kuva1","tv8_kuva2",
+            ];
+            for (let i = 0; i < files.length; i++) {
+              await onImageUpload(files[i], slots[i]);
+            }
+            e.target.value = "";
+          }}
+        />
+        <label htmlFor="massalataus-input" style={{
+          display: "inline-block", padding: "10px 20px",
+          background: "#1a56db", color: "white", borderRadius: 6,
+          cursor: "pointer", fontWeight: 600, fontSize: 14
+        }}>
+          Valitse kuvat galleriasta
+        </label>
+      </div>
+
       <p className="hint">Lisätiedot-kenttä vaikuttaa ChatGPT:n generoimaan tekstiin. Jätä tyhjäksi jos standardin mukainen.</p>
 
       {visiblePhases.map(tv => (
