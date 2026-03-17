@@ -176,6 +176,7 @@ const STEPS = [
   { id: 5, label: "Materiaalit" },
   { id: 6, label: "Kuvat" },
   { id: 7, label: "Tarjous" },
+  { id: 8, label: "Viesti" },
 ];
 
 // ─── TEMPLATE & AIKATAULU ────────────────────────────────────────────────────
@@ -488,6 +489,10 @@ function defaultState() {
     kohde_konteksti: "",
     tarjousteksti: "",
     tarjousteksti_loading: false,
+    // Saateviesti
+    soitellaan_paiva: "",
+    sahkopostiviesti: "",
+    sahkopostiotsikko: "",
     // Page 7 — Laskuri
     sokkeli_metrit: "",
     terassi_m2_laskuri: "",
@@ -1375,6 +1380,106 @@ function Page6({ state, update, onImageUpload }) {
 }
 
 
+// ─── PAGE VIESTI: SAATEVIESTI ────────────────────────────────────────────────
+function PageViesti({ state, update }) {
+  const etunimi = (state.asiakas_nimi || "").split(" ")[0] || "";
+
+  const handleGeneroiViesti = () => {
+    const paiva = state.soitellaan_paiva || "perjantaina";
+
+    const otsikko = `Julkisivun maalaus / ${state.asiakas_nimi || ""}`;
+
+    const viesti =
+`Moikka ${etunimi},
+
+Kiitos vielä mukavasta tapaamisesta tänään.
+
+Liitteenä kohteelle laadittu tarjous sekä toimintasuunnitelma julkisivun maalauksesta.
+
+Tarjouksessa on eritelty urakan sisältö ja rajaukset, käytettävät materiaalit sekä arvioitu toteutusajankohta.
+
+Käykää materiaalit rauhassa läpi, ja jos jokin kohta herättää kysymyksiä, avaan mielelläni tarkemmin.
+
+Soitellaan ${paiva}!`;
+
+    update("sahkopostiotsikko", otsikko);
+    update("sahkopostiviesti", viesti);
+  };
+
+  return (
+    <div>
+      <h2 className="page-title">Saateviesti</h2>
+
+      <div className="card">
+        <div className="field">
+          <label className="field-label">Soitellaan</label>
+          <select
+            value={state.soitellaan_paiva}
+            onChange={e => update("soitellaan_paiva", e.target.value)}
+            className="select-input">
+            <option value="">Valitse päivä</option>
+            <option value="maanantaina">Maanantaina</option>
+            <option value="tiistaina">Tiistaina</option>
+            <option value="keskiviikkona">Keskiviikkona</option>
+            <option value="torstaina">Torstaina</option>
+            <option value="perjantaina">Perjantaina</option>
+          </select>
+        </div>
+
+        <button
+          type="button"
+          className="btn btn-primary"
+          style={{ marginTop: 8 }}
+          onClick={handleGeneroiViesti}>
+          Generoi saateviesti
+        </button>
+
+        {state.sahkopostiotsikko && (
+          <div style={{ marginTop: 24 }}>
+            <div className="field">
+              <label className="field-label">Otsikko</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <textarea
+                  readOnly
+                  value={state.sahkopostiotsikko}
+                  rows={1}
+                  style={{ flex: 1, resize: "none" }} />
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => navigator.clipboard.writeText(state.sahkopostiotsikko)}>
+                  Kopioi
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {state.sahkopostiviesti && (
+          <div style={{ marginTop: 16 }}>
+            <div className="field">
+              <label className="field-label">Viesti</label>
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                <textarea
+                  readOnly
+                  value={state.sahkopostiviesti}
+                  rows={12}
+                  style={{ flex: 1 }} />
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => navigator.clipboard.writeText(state.sahkopostiviesti)}>
+                  Kopioi
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── PAGE 8: TARJOUS ────────────────────────────────────────────────────────
 function Page8({ state, update, onGenerateTarjous }) {
   const [copied, setCopied] = useState(false);
@@ -1643,6 +1748,7 @@ export default function App() {
     <Page5 state={state} update={update} />,
     <Page6 state={state} update={update} onImageUpload={handleImageUpload} />,
     <Page8 state={state} update={update} onGenerateTarjous={handleGenerateTarjous} />,
+    <PageViesti state={state} update={update} />,
   ];
 
   // Dashboard handlers
