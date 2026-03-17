@@ -181,9 +181,9 @@ const STEPS = [
 
 // ─── TEMPLATE & AIKATAULU ────────────────────────────────────────────────────
 const TEMPLATE_MAP = {
-  1: "2451fb84d86c74512aa60f67b08b9e3904b564a2e11d270c94e3be84a4f3b875",
-  2: "bf34745ca5fe89d7e1ddd2117c5ddb1f9a3974bde3ba4a341aecc00102974e6f",
-  3: "1ec12ca965b1a1ca13ffe8378555ee0e3fb7016f2f83cced0e53886a8b2aab2d",
+  1: "284f65523d5eed890e0bee8dfbcba04a2a555c70c6832b784ae0d4f11ad88bcf",
+  2: "f9d5f6847b85adb3a7bfae40097abf0da2def91affdf5cefdbb9b7d5d51e0cec",
+  3: "235b10a9fac0b2afeec60bcbc67726b8b10115d287a36e42c4d32d6cc02a9f35",
 };
 
 const AIKATAULU_MAP = {
